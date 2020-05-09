@@ -23,34 +23,25 @@ end
     @test !Outer.callh(1.0)
     @test Outer.callcallh(1)
 
-    function mmatches(mi, mod, name, spectypes)
-        mi.def.module === mod || return false
-        mi.def.name === name || return false
-        for (t1, t2) in zip(Iterators.drop(mi.specTypes.parameters, 1), spectypes)
-            t1 === t2 || return false
-        end
-        return true
-    end
-
     mis = Core.MethodInstance[]
     visit(Outer) do x
         isa(x, Core.MethodInstance) && push!(mis, x)
     end
-    @test any(mi->mmatches(mi, Outer, :f, (Nothing,)), mis)
-    @test count(mi->mmatches(mi, Outer.Inner, :g, (String,)), mis) == 1
-    @test !any(mi->mmatches(mi, Outer.Inner, :g, (SubString,)), mis)
-    @test any(mi->mmatches(mi, Outer.Inner, :h, (Int,)), mis)
-    @test any(mi->mmatches(mi, Outer.Inner, :h, (Float64,)), mis)
-    @test any(mi->mmatches(mi, Outer, :callh, (Int,)), mis)
-    @test any(mi->mmatches(mi, Outer, :callh, (Float64,)), mis)
-    @test any(mi->mmatches(mi, Outer, :callcallh, (Int,)), mis)
-    @test !any(mi->mmatches(mi, Outer, :callcallh, (Float64,)), mis)
+    @test any(mi->mi.specTypes === Tuple{typeof(Outer.f), Nothing}, mis)
+    @test count(mi->mi.specTypes === Tuple{typeof(Outer.Inner.g), String}, mis) == 1
+    @test !any(mi->mi.specTypes=== Tuple{typeof(Outer.Inner.g), SubString{String}}, mis)
+    @test any(mi->mi.specTypes === Tuple{typeof(Outer.Inner.h), Int}, mis)
+    @test any(mi->mi.specTypes === Tuple{typeof(Outer.Inner.h), Float64}, mis)
+    @test any(mi->mi.specTypes === Tuple{typeof(Outer.callh), Int}, mis)
+    @test any(mi->mi.specTypes === Tuple{typeof(Outer.callh), Float64}, mis)
+    @test any(mi->mi.specTypes === Tuple{typeof(Outer.callcallh), Int}, mis)
+    @test !any(mi->mi.specTypes === Tuple{typeof(Outer.callcallh), Float64}, mis)
 
-    mi = mis[findfirst(mi->mmatches(mi, Outer.Inner, :h, (Int,)), mis)]
+    mi = mis[findfirst(mi->mi.specTypes === Tuple{typeof(Outer.Inner.h), Int}, mis)]
     @test length(all_backedges(mi)) == 2
-    @test terminal_backedges(mi) == [mis[findfirst(mi->mmatches(mi, Outer, :callcallh, (Int,)), mis)]]
-    mi = mis[findfirst(mi->mmatches(mi, Outer.Inner, :h, (Float64,)), mis)]
+    @test terminal_backedges(mi) == [mis[findfirst(mi->mi.specTypes === Tuple{typeof(Outer.callcallh), Int}, mis)]]
+    mi = mis[findfirst(mi->mi.specTypes === Tuple{typeof(Outer.Inner.h), Float64}, mis)]
     @test length(all_backedges(mi)) == 1
-    @test terminal_backedges(mi) == [mis[findfirst(mi->mmatches(mi, Outer, :callh, (Float64,)), mis)]]
+    @test terminal_backedges(mi) == [mis[findfirst(mi->mi.specTypes === Tuple{typeof(Outer.callh), Float64}, mis)]]
     @test all_backedges(mi) == terminal_backedges(mi)
 end

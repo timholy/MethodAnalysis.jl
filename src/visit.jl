@@ -1,3 +1,9 @@
+"""
+    visit(operation)
+
+Scan all loaded modules with `operation`. `operation(x)` should handle `x::Module`, `x::Function`,
+`x::Method`, `x::MethodInstance`. Any return value from `operation` will be discarded.
+"""
 function visit(operation)
     visiting=Set{Module}()
     for mod in Base.loaded_modules_array()
@@ -73,16 +79,23 @@ end
 
 visit(operation, x) = nothing
 
+"""
+    visit_backedges(operation, mi::MethodInstance)
+
+Visit the backedges of `mi` and apply `operation`.
+`operation(edge::MethodInstance)` should return `true` if the backedges of `edge` should in turn be visited,
+`false` otherwise.
+"""
 visit_backedges(operation, mi::MethodInstance) =
     visit_backedges(operation, mi, Set{MethodInstance}())
 
 function visit_backedges(operation, mi, visited)
     mi ∈ visited && return nothing
     push!(visited, mi)
-    operation(mi)
-    if isdefined(mi, :backedges)
-        for be in mi.backedges
-            visit_backedges(operation, be, visited)
+    status = operation(mi)
+    if status && isdefined(mi, :backedges)
+        for edge in mi.backedges
+            visit_backedges(operation, edge, visited)
         end
     end
     return nothing
