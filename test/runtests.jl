@@ -121,9 +121,11 @@ applyf(Any[1, true])
 end
 
 @testset "Invalidation" begin
-    src, w = Invalidation.src, Invalidation.w
-    mi = instance(Invalidation.applyf, (Vector{Any},))
-    @test MethodAnalysis.equal(src, src)
-    @test worlds(mi) != w
-    @test !MethodAnalysis.equal(src, code_typed(Invalidation.applyf, (Vector{Any},))[1])
+    if VERSION >= v"1.2"
+        src, w = Invalidation.src, Invalidation.w
+        mi = instance(Invalidation.applyf, (Vector{Any},))
+        @test MethodAnalysis.equal(src, src)
+        @test worlds(mi) != w
+        @test !MethodAnalysis.equal(src, code_typed(Invalidation.applyf, (Vector{Any},))[1])
+    end
 end

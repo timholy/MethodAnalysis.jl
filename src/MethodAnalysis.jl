@@ -34,10 +34,10 @@ function worlds(mi::Core.MethodInstance)
     w = Tuple{UInt,UInt}[]
     if isdefined(mi, :cache)
         ci = mi.cache
-        push!(w, (ci.min_world, ci.max_world))
+        push!(w, (ci.min_world % UInt, ci.max_world % UInt))
         while isdefined(ci, :next)
             ci = ci.next
-            push!(w, (ci.min_world, ci.max_world))
+            push!(w, (ci.min_world % UInt, ci.max_world % UInt))
         end
     end
     return w
@@ -46,16 +46,19 @@ end
 # Not sure we want to change the meaning of == here, so let's define our own name
 # A few fields are deliberately unchecked
 function equal(ci1::Core.CodeInfo, ci2::Core.CodeInfo)
-    return ci1.code == ci2.code &&
-           ci1.codelocs == ci2.codelocs &&
-           ci1.ssavaluetypes == ci2.ssavaluetypes &&
-           ci1.ssaflags == ci2.ssaflags &&
-           ci1.method_for_inference_limit_heuristics == ci2.method_for_inference_limit_heuristics &&
-           ci1.linetable == ci2.linetable &&           
-           ci1.slotnames == ci2.slotnames &&
-           ci1.slotflags == ci2.slotflags &&
-           ci1.slottypes == ci2.slottypes &&
-           ci1.rettype == ci2.rettype
+    ret = ci1.code == ci2.code &&
+          ci1.codelocs == ci2.codelocs &&
+          ci1.ssavaluetypes == ci2.ssavaluetypes &&
+          ci1.ssaflags == ci2.ssaflags &&
+          ci1.method_for_inference_limit_heuristics == ci2.method_for_inference_limit_heuristics &&
+          ci1.linetable == ci2.linetable &&           
+          ci1.slotnames == ci2.slotnames &&
+          ci1.slotflags == ci2.slotflags
+    if VERSION >= v"1.2"
+        ret &= ci1.slottypes == ci2.slottypes &&
+               ci1.rettype == ci2.rettype
+    end
+    return ret
 end
 equal(p1::Pair, p2::Pair) = p1.second == p2.second && equal(p1.first, p2.first)
 
