@@ -1,5 +1,7 @@
 module MethodAnalysis
 
+using AbstractTrees
+
 using Core: MethodInstance, SimpleVector, MethodTable
 
 export visit, call_type, instance, worlds
@@ -76,5 +78,7 @@ function instance(f, types)
     end
     return inst
 end
+
+AbstractTrees.children(mi::MethodInstance) = isdefined(mi, :backedges) ? mi.backedges : []
 
 end # module

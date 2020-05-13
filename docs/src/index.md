@@ -86,7 +86,7 @@ julia> mis[1].specTypes
 Tuple{typeof(findfirst),BitArray{1}}
 ```
 
-## Getting the backedges for a function
+### Getting the backedges for a function
 
 Let's see all the compiled instances of `Base.setdiff` and their immediate callers:
 
@@ -96,6 +96,49 @@ julia> direct_backedges(setdiff)
  MethodInstance for setdiff(::Base.KeySet{Any,Dict{Any,Any}}, ::Base.KeySet{Any,Dict{Any,Any}}) => MethodInstance for keymap_merge(::Dict{Char,Any}, ::Dict{Any,Any})
  MethodInstance for setdiff(::Base.KeySet{Any,Dict{Any,Any}}, ::Base.KeySet{Any,Dict{Any,Any}}) => MethodInstance for keymap_merge(::Any, ::Dict{Any,Any})
                          MethodInstance for setdiff(::Array{Base.UUID,1}, ::Array{Base.UUID,1}) => MethodInstance for deps_graph(::Pkg.Types.Context, ::Dict{Base.UUID,String}, ::Dict{Base.UUID,Pkg.Types.VersionSpec}, ::Dict{Base.UUID,Pkg.Resolve.Fixed})
+```
+
+### Printing backedges as a tree
+
+MethodAnalysis uses [AbstractTrees](https://github.com/JuliaCollections/AbstractTrees.jl) to display the complete set of backedges:
+
+```jldoctest; setup=:(using MethodAnalysis)
+julia> mi = instance(findfirst, (BitVector,))
+MethodInstance for findfirst(::BitArray{1})
+
+julia> MethodAnalysis.print_tree(mi)
+MethodInstance for findfirst(::BitArray{1})
+├─ MethodInstance for prune_graph!(::Graph)
+│  └─ MethodInstance for #simplify_graph!#111(::Bool, ::typeof(simplify_graph!), ::Graph, ::Set{Int64})
+│     └─ MethodInstance for simplify_graph!(::Graph, ::Set{Int64})
+│        └─ MethodInstance for simplify_graph!(::Graph)
+│           ├─ MethodInstance for trigger_failure!(::Graph, ::Array{Int64,1}, ::Tuple{Int64,Int64})
+│           │  ⋮
+│           │  
+│           └─ MethodInstance for resolve_versions!(::Context, ::Array{PackageSpec,1})
+│              ⋮
+│              
+└─ MethodInstance for update_solution!(::SolutionTrace, ::Graph)
+   └─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
+      ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
+      │  ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
+      │  │  ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
+      │  │  │  ⋮
+      │  │  │  
+      │  │  └─ MethodInstance for maxsum(::Graph)
+      │  │     ⋮
+      │  │     
+      │  └─ MethodInstance for maxsum(::Graph)
+      │     └─ MethodInstance for resolve(::Graph)
+      │        ⋮
+      │        
+      └─ MethodInstance for maxsum(::Graph)
+         └─ MethodInstance for resolve(::Graph)
+            ├─ MethodInstance for trigger_failure!(::Graph, ::Array{Int64,1}, ::Tuple{Int64,Int64})
+            │  ⋮
+            │  
+            └─ MethodInstance for resolve_versions!(::Context, ::Array{PackageSpec,1})
+               ⋮
 ```
 
 ## API reference
