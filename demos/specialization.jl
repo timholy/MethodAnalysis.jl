@@ -15,9 +15,9 @@ end
 categorizemi(x) = nothing
 
 visit(categorizemi)
+println("Found ", length(fully_specialized), " MethodInstances and ", length(nonspecialized), " other MethodInstances")
+
 # We're especially interested in the nonspecialized ones.
-# Start with the ones in Base
-ubase = collect(filter(x->x.def.module === Base, nonspecialized))
 # Find specializations that have a TypeVar parameter
 function hastv(typ)
     isa(typ, UnionAll) && return true
@@ -28,18 +28,18 @@ function hastv(typ)
     end
     return false
 end
-ubasetv = filter(mi->hastv(mi.specTypes), ubase)
-println("There are ", length(ubasetv), " MethodInstances that have a TypeVar in specTypes")
+mitv = filter(mi->hastv(mi.specTypes), nonspecialized)
+println("There are ", length(mitv), " MethodInstances that have a TypeVar in specTypes")
 
 # Let's analyze a specific case
 m = which(similar, (Vector,))
-mitv = Ref{Any}(nothing)
+_mi = Ref{Any}(nothing)
 visit(m.specializations) do mi
-    mitv[] isa Core.MethodInstance && return nothing
-    hastv(mi.specTypes) && (mitv[] = mi)
+    _mi[] isa Core.MethodInstance && return nothing
+    hastv(mi.specTypes) && (_mi[] = mi)
     return nothing
 end
-mi = mitv[]
+mi = _mi[]
 @assert(mi isa Core.MethodInstance)
 println("\n## Performing an analysis of ", mi, '\n')
 # Find the last callers with TypeVar specializations
