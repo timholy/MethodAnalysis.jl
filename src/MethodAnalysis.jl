@@ -2,6 +2,7 @@ module MethodAnalysis
 
 using AbstractTrees
 
+using Base: Callable, IdSet
 using Core: MethodInstance, SimpleVector, MethodTable
 
 export visit, call_type, instance, worlds
@@ -77,7 +78,9 @@ function instance(f, types)
             if mi.specTypes === tt
                 inst = mi
             end
+            return false
         end
+        true
     end
     return inst
 end

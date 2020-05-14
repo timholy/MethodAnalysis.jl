@@ -3,7 +3,7 @@
 This package facilitates introspection of Julia's internals, with a particular focus on its MethodInstances and their backedges.
 
 !!! warning
-    Julia's internals are not subject to the same stability guarantee that the rest of the language enjoys.
+    Julia's internals are not subject to the same interface compatibility guarantee that the rest of the language enjoys.
 
 ## Demonstrations
 
@@ -16,10 +16,12 @@ julia> using MethodAnalysis
 
 julia> mods = Module[];
 
-julia> visit(Base; print=false) do obj
+julia> visit(Base) do obj
            if isa(obj, Module)
                push!(mods, obj)
+               return true     # descend into submodules
            end
+           false   # but don't descend into anything else (MethodTables, etc.)
        end
 
 julia> Base.FastMath ∈ mods
@@ -34,15 +36,10 @@ true
 julia> meths = []
 Any[]
 
-julia> visit(Core.Compiler) do item    # without print=false it will display the modules it visits
+julia> visit(Core.Compiler) do item
            isa(item, Method) && push!(meths, item)
+           true   # walk through everything
        end
-Module Core.Compiler
-Module Core.Compiler.CoreDocs
-Module Core.Compiler.Iterators
-Module Core.Compiler.Order
-Module Core.Compiler.Sort
-Module Core.Compiler.Sort.Float
 
 julia> first(methods(Core.Compiler.typeinf_ext)) ∈ meths
 true
@@ -72,6 +69,7 @@ julia> mis = Core.MethodInstance[];
 
 julia> visit(findfirst) do item
            isa(item, Core.MethodInstance) && length(Base.unwrap_unionall(item.specTypes).parameters) == 2 && push!(mis, item)
+           true
        end
 
 julia> mis

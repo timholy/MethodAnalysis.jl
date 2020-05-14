@@ -18,14 +18,11 @@ their backedges. The result includes both MethodTable and MethodInstance backedg
 """
 function with_all_backedges(iter)
     backedges = Set{MethodInstance}()
-    visited = Set{Union{MethodInstance,MethodTable}}()
+    visited = IdSet{MethodInstance}()
     for item in iter
         visit_backedges(item, visited) do edge
             if isa(edge, MethodInstance)
                 push!(backedges, edge)
-            else
-                sig, mi = edge
-                push!(backedges, mi)
             end
             true
         end
@@ -57,26 +54,32 @@ Collect all backedges for a function `f` as pairs `instance=>caller` or `sig=>ca
 The latter occur for MethodTable backedges.
 If `skip` is `true`, any `caller` listed in a MethodTable backedge is omitted from the instance backedges. 
 """
-function direct_backedges(f::Function; skip::Bool=true)
+function direct_backedges(f::Union{Method,Callable}; skip::Bool=true)
     bes = []
     _skip = Set{MethodInstance}()
-    mths = methods(f).ms
-    callee = nothing
-    visit_backedges(f) do item
-        if isa(item, Pair)
-            push!(bes, item)
-            push!(_skip, item.second)
-            return false
-        else
-            mi = item::MethodInstance
-            if mi.def ∈ mths
-                callee = mi
-                return true
-            else
-                (!skip || mi ∉ _skip) && push!(bes, callee=>mi)
-                return false
+    visit(f) do item
+        if isa(item, MethodTable)
+            mt = item::MethodTable
+            if isdefined(mt, :backedges)
+                sigmis = mt.backedges::Vector{Any}
+                for i = 1:2:length(sigmis)
+                    sig, mi = sigmis[i], sigmis[i+1]
+                    push!(bes, Pair{Any,MethodInstance}(sig, mi))
+                    push!(_skip, mi)
+                end
             end
+            return false
+        elseif isa(item, MethodInstance)
+            callee = item::MethodInstance
+            if isdefined(callee, :backedges)
+                for caller in callee.backedges
+                    skip && caller ∈ _skip && continue
+                    push!(bes, callee=>caller)
+                end
+            end
+            return false
         end
+        true
     end
     return bes
 end
