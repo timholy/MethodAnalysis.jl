@@ -1,16 +1,18 @@
 """
-    visit(operation, obj; print=false)
+    visit(operation, obj; print::Bool=false)
 
 Scan `obj` and all of its "sub-objects" (e.g., functions if `obj::Module`,
 methods if `obj::Function`, etc.) recursively.
 `operation(x)` should return `true` if `visit` should descend
-into "sub-objects" of `x`. 
+into "sub-objects" of `x`.
+
+If `print` is `true`, each visited object is printed to standard output.
 
 # Example
 
 To collect all MethodInstances of a function,
 
-```jldoctest; setup=:(using MethodAnalysis), filter=r"[dd]-element"
+```jldoctest; setup=:(using MethodAnalysis), filter=r"[0-9][0-9]"
 julia> mis = Core.MethodInstance[];
 
 julia> visit(findfirst) do x
@@ -21,25 +23,26 @@ julia> visit(findfirst) do x
            true
        end
 
-julia> mis
-31-element Array{Core.MethodInstance,1}:
- MethodInstance for findfirst(::BitArray{1})
-[...]
-```    
+julia> length(mis)
+34
+```
+
+The exact number of MethodInstances will depend on what code you've run in your Julia session.
 """
 visit(@nospecialize(operation), @nospecialize(obj); print::Bool=false) =
     _visit(operation, obj, IdSet{Any}(), print)
 
 """
-    visit(operation)
+    visit(operation; print::Bool=false)
 
 Scan all loaded modules with `operation`.
+See [`visit(operation, obj)`](@ref) for further detail.
 
 # Example
 
 Collect all loaded modules, even if they are internal.
 
-```jldoctest; setup=:(using MethodAnalysis), filter=r"[ddd]-element"
+```jldoctest; setup=:(using MethodAnalysis), filter=r"[0-9][0-9][0-9]-element"
 julia> mods = Module[];
 
 julia> visit() do x
