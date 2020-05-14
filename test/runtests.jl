@@ -24,8 +24,9 @@ end
     @test Outer.callcallh(1)
 
     mis = Core.MethodInstance[]
-    visit(Outer; print=false) do x
+    visit(Outer) do x
         isa(x, Core.MethodInstance) && push!(mis, x)
+        true
     end
     @test any(mi->mi.specTypes === Tuple{typeof(Outer.f), Nothing}, mis)
     @test count(mi->mi.specTypes === Tuple{typeof(Outer.Inner.g), String}, mis) == 1
@@ -38,10 +39,12 @@ end
     @test !any(mi->mi.specTypes === Tuple{typeof(Outer.callcallh), Float64}, mis)
 
     mods = Module[]
-    visit(;print=false) do x
+    visit() do x
         if isa(x, Module)
             push!(mods, x)
+            return true
         end
+        false
     end
     @test all(in(mods), Base.loaded_modules_array())
     @test Base ∈ mods
