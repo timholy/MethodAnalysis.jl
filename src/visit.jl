@@ -87,6 +87,7 @@ end
 
 function _visit(@nospecialize(operation), @nospecialize(f::Callable), visited::IdSet{Any}, print::Bool)
     f ∈ visited && return nothing
+    f === Vararg && return nothing   # methods(Varargs) errors due to Type{Vararg}
     push!(visited, f)
     print && println("Callable ", f)
     if operation(f)

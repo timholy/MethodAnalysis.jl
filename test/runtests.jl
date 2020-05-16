@@ -50,6 +50,14 @@ end
     @test Base ∈ mods
     @test Base.Checked ∈ mods
     @test length(mods) == length(unique(mods))
+
+    # methods(Vararg) throws an error
+    nitems = Ref(0)
+    visit(Vararg) do item
+        nitems[] += 1
+        true
+    end
+    @test nitems[] == 0
 end
 
 @testset "Backedges" begin
