@@ -58,6 +58,12 @@ end
         true
     end
     @test nitems[] == 0
+
+    # Handle constructors properly
+    visit(IndexStyle) do m
+        isa(m, Method) && @test Base.unwrap_unionall(m.sig).parameters[1].parameters[1] === IndexStyle
+        return m === IndexStyle
+    end
 end
 
 @testset "Backedges" begin

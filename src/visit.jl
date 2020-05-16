@@ -93,7 +93,7 @@ function _visit(@nospecialize(operation), @nospecialize(f::Callable), visited::I
     if operation(f)
         ml = methods(f)
         _visit(operation, ml.mt, visited, print)
-        Base.visit(ml.mt) do m
+        for m in ml.ms
             _visit(operation, m, visited, print)
         end
     end
