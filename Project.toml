@@ -1,7 +1,7 @@
 name = "MethodAnalysis"
 uuid = "85b6ec6f-f7df-4429-9514-a64bcd9ee824"
 authors = ["Tim Holy <tim.holy@gmail.com>"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
