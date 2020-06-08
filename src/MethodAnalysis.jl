@@ -11,8 +11,9 @@ export visit_backedges, all_backedges, with_all_backedges, terminal_backedges, d
 include("visit.jl")
 include("backedges.jl")
 
-## Move to Base?
-Base.:(==)(stmt1::Core.PhiNode, stmt2::Core.PhiNode) = stmt1.edges == stmt2.edges && stmt1.values == stmt2.values
+if !hasmethod(==, Tuple{Core.PhiNode,Core.PhiNode})
+    Base.:(==)(stmt1::Core.PhiNode, stmt2::Core.PhiNode) = stmt1.edges == stmt2.edges && stmt1.values == stmt2.values
+end
 
 """
     call_type(tt)
@@ -52,7 +53,7 @@ function equal(ci1::Core.CodeInfo, ci2::Core.CodeInfo)
           ci1.ssavaluetypes == ci2.ssavaluetypes &&
           ci1.ssaflags == ci2.ssaflags &&
           ci1.method_for_inference_limit_heuristics == ci2.method_for_inference_limit_heuristics &&
-          ci1.linetable == ci2.linetable &&           
+          ci1.linetable == ci2.linetable &&
           ci1.slotnames == ci2.slotnames &&
           ci1.slotflags == ci2.slotflags
     if VERSION >= v"1.2"
