@@ -66,17 +66,36 @@ equal(p1::Pair, p2::Pair) = p1.second == p2.second && equal(p1.first, p2.first)
 
 """
     mi = instance(f, types)
+    mi = instance(tt::Type{<:Tuple})
 
-Return the `MethodInstance` `mi` for function `f` and the given `types`.
+Return the `MethodInstance` `mi` for function `f` and the given `types`,
+or for the complete signature `tt`.
 If no version compiled for these types exists, returns `nothing`.
+
+# Examples
+
+```jldoctest; setup=:(using MethodAnalysis)
+julia> f(x, y::String) = 2x; f(x, y::Number) = x + y;
+
+julia> f(1, "hi"); f(1, 1.0);
+
+julia> instance(f, (Int, String))
+MethodInstance for f(::Int64, ::String)
+
+julia> instance(Tuple{typeof(f), Int, String})
+MethodInstance for f(::Int64, ::String)
+```
 """
-function instance(f, types)
-    m = which(f, types)
+function instance(@nospecialize(f), @nospecialize(types))
+    if types isa Tuple
+        m = which(f, types)
+        tt = Tuple{typeof(f), types...}
+        return instance(m, tt)
+    end
     inst = nothing
-    tt = Tuple{typeof(f), types...}
-    visit(m) do mi
+    visit(f) do mi
         if isa(mi, MethodInstance)
-            if mi.specTypes === tt
+            if mi.specTypes === types
                 inst = mi
             end
             return false
@@ -84,6 +103,11 @@ function instance(f, types)
         true
     end
     return inst
+end
+function instance(@nospecialize(types))
+    f, argt = call_type(types)
+    m = which(f, argt)
+    return instance(m, types)
 end
 
 AbstractTrees.children(mi::MethodInstance) = isdefined(mi, :backedges) ? mi.backedges : []
