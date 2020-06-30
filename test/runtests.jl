@@ -13,6 +13,9 @@ module Outer
     f(x) = 1
     callh(x) = Inner.h(x)
     callcallh(x) = callh(x)
+
+    f2(x, y::String) = 2x
+    f2(x, y::Number) = x + y
 end
 
 
@@ -83,6 +86,11 @@ end
     @test instance(Outer.callh, (Float64,)) ∈ bes
     @test instance(Outer.callcallh, (Int,)) ∈ bes
     @test length(bes) == 5
+
+    Outer.f2(1, "hello")
+    m = which(Outer.f2, (Int, String))
+    tt = Tuple{typeof(Outer.f2),Int,String}
+    @test instance(Outer.f2, (Int, String)) === instance(m, tt) === instance(tt)
 
     hbes = filter(mi->mi.def ∈ methods(Outer.Inner.h), bes)
     @test length(hbes) == 2
