@@ -182,24 +182,26 @@ end
 
 end
 
-@testset "findcallers" begin
-    Callers.g()
-    mis = methodinstances(Callers)
-    mi = methodinstance(Callers.g, ())
-    # Why are there no `:invoke`s, only `:call`s?
-    callers1 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Float64, mis; callhead=:invoke)
-    callers2 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Int, mis; callhead=:invoke)
-    callers3 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Any, mis; callhead=:call)
-    callers4 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Integer, mis; callhead=:call)
-    callers5 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Vector{Any}, mis; callhead=:iterate)
-    @test_broken callers1[1] == mi && callers1[3] < callers3[3]
-    @test_broken callers2[1] == mi && callers2[3] < callers4[3]
-    # Given that :invoke isn't showing up, grab callers1 & callers2 again
-    callers1 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Float64, mis; callhead=:call)
-    callers2 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Int, mis; callhead=:call)
-    allcallers = [callers1, callers2, callers3, callers4, callers5]
-    @test all(x->length(x) == 1, allcallers)
-    @test all(x->only(x)[1] == mi, allcallers)
-    stmtid = map(x->only(x)[3], allcallers)
-    @test issorted(stmtid) && length(unique(stmtid)) == 5
+if isdefined(MethodAnalysis, :findcallers)
+    @testset "findcallers" begin
+        Callers.g()
+        mis = methodinstances(Callers)
+        mi = methodinstance(Callers.g, ())
+        # Why are there no `:invoke`s, only `:call`s?
+        callers1 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Float64, mis; callhead=:invoke)
+        callers2 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Int, mis; callhead=:invoke)
+        callers3 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Any, mis; callhead=:call)
+        callers4 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Integer, mis; callhead=:call)
+        callers5 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Vector{Any}, mis; callhead=:iterate)
+        @test_broken callers1[1] == mi && callers1[3] < callers3[3]
+        @test_broken callers2[1] == mi && callers2[3] < callers4[3]
+        # Given that :invoke isn't showing up, grab callers1 & callers2 again
+        callers1 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Float64, mis; callhead=:call)
+        callers2 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Int, mis; callhead=:call)
+        allcallers = [callers1, callers2, callers3, callers4, callers5]
+        @test all(x->length(x) == 1, allcallers)
+        @test all(x->only(x)[1] == mi, allcallers)
+        stmtid = map(x->only(x)[3], allcallers)
+        @test issorted(stmtid) && length(unique(stmtid)) == 5
+    end
 end
