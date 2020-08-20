@@ -51,12 +51,12 @@ true
 julia> foo(::AbstractVector) = 1
 foo (generic function with 1 method)
 
-julia> instance(foo, (Vector{Int},))   # we haven't called it yet, so it's not compiled
+julia> methodinstance(foo, (Vector{Int},))   # we haven't called it yet, so it's not compiled
 
 julia> foo([1,2])
 1
 
-julia> instance(foo, (Vector{Int},))
+julia> methodinstance(foo, (Vector{Int},))
 MethodInstance for foo(::Array{Int64,1})
 ```
 
@@ -84,6 +84,12 @@ julia> mis[1].specTypes
 Tuple{typeof(findfirst),BitArray{1}}
 ```
 
+There's also a convenience shortcut:
+
+```julia
+julia> mis = methodinstances(findfirst)
+```
+
 ### Getting the backedges for a function
 
 Let's see all the compiled instances of `Base.setdiff` and their immediate callers:
@@ -101,7 +107,7 @@ julia> direct_backedges(setdiff)
 MethodAnalysis uses [AbstractTrees](https://github.com/JuliaCollections/AbstractTrees.jl) to display the complete set of backedges:
 
 ```jldoctest; setup=:(using MethodAnalysis)
-julia> mi = instance(findfirst, (BitVector,))
+julia> mi = methodinstance(findfirst, (BitVector,))
 MethodInstance for findfirst(::BitArray{1})
 
 julia> MethodAnalysis.print_tree(mi)
@@ -112,32 +118,47 @@ MethodInstance for findfirst(::BitArray{1})
 │        └─ MethodInstance for simplify_graph!(::Graph)
 │           ├─ MethodInstance for trigger_failure!(::Graph, ::Array{Int64,1}, ::Tuple{Int64,Int64})
 │           │  ⋮
-│           │  
+│           │
 │           └─ MethodInstance for resolve_versions!(::Context, ::Array{PackageSpec,1})
 │              ⋮
-│              
+│
 └─ MethodInstance for update_solution!(::SolutionTrace, ::Graph)
    └─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
       ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
       │  ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
       │  │  ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
       │  │  │  ⋮
-      │  │  │  
+      │  │  │
       │  │  └─ MethodInstance for maxsum(::Graph)
       │  │     ⋮
-      │  │     
+      │  │
       │  └─ MethodInstance for maxsum(::Graph)
       │     └─ MethodInstance for resolve(::Graph)
       │        ⋮
-      │        
+      │
       └─ MethodInstance for maxsum(::Graph)
          └─ MethodInstance for resolve(::Graph)
             ├─ MethodInstance for trigger_failure!(::Graph, ::Array{Int64,1}, ::Tuple{Int64,Int64})
             │  ⋮
-            │  
+            │
             └─ MethodInstance for resolve_versions!(::Context, ::Array{PackageSpec,1})
                ⋮
 ```
+
+### Finding the callers of a method
+
+To find already-compiled callers of `sum(::Vector{Int})`
+
+```julia
+# Collect all MethodInstances
+mis = methodinstances();
+# Create a function that returns `true` for the correct set of argument types
+argmatch(argtyps) = length(argtyps) == 1 && argtyps[1] === Vector{Int}
+# Find the calls that match
+findcallers(sum, argmatch, mis)
+```
+
+There are more options, see the help for `findcallers`.
 
 ## API reference
 
@@ -161,6 +182,8 @@ with_all_backedges
 
 ```@docs
 instance
+instances
 call_type
+findcallers
 worlds
 ```
