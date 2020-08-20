@@ -62,7 +62,7 @@ callers2 = findcallers(f, argtyps->length(argtyps) == 1 && argtyps[1] === Intege
 # Get the splat call
 callers3 = findcallers(f, argtyps->length(argtyps) == 1 && argtyps[1] === Vector{Any}, mis; callhead=:iterate)
 
-!!! compat Julia 1.6
+!!! compat
     `findcallers` is available on Julia 1.6 and higher
 
 !!! warn
