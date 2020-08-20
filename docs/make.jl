@@ -9,7 +9,6 @@ makedocs(;
     repo="https://github.com/timholy/MethodAnalysis.jl/blob/{commit}{path}#L{line}",
     sitename="MethodAnalysis.jl",
     authors="Tim Holy <tim.holy@gmail.com>",
-    assets=String[],
 )
 
 deploydocs(;

@@ -69,28 +69,38 @@ end
     end
 end
 
+@testset "methodinstance(s)" begin
+    sum(1:3)
+    mi = methodinstance(sum, (UnitRange{Int},))
+    @test mi isa Core.MethodInstance
+    mis = methodinstances(sum)
+    @test mis isa Vector{Core.MethodInstance}
+    @test mi ∈ mis
+    @test length(mis) > 1
+end
+
 @testset "Backedges" begin
-    mi = instance(Outer.Inner.h, (Int,))
+    mi = methodinstance(Outer.Inner.h, (Int,))
     @test length(all_backedges(mi)) == 2
-    @test terminal_backedges(mi) == [instance(Outer.callcallh, (Int,))]
-    mi = instance(Outer.Inner.h, (Float64,))
+    @test terminal_backedges(mi) == [methodinstance(Outer.callcallh, (Int,))]
+    mi = methodinstance(Outer.Inner.h, (Float64,))
     @test length(all_backedges(mi)) == 1
-    @test terminal_backedges(mi) == [instance(Outer.callh, (Float64,))]
+    @test terminal_backedges(mi) == [methodinstance(Outer.callh, (Float64,))]
     @test all_backedges(mi) == terminal_backedges(mi)
 
     bes = []
     visit_backedges(x->(push!(bes, x); true), Outer.Inner.h)
-    @test instance(Outer.Inner.h, (Int,)) ∈ bes
-    @test instance(Outer.Inner.h, (Float64,)) ∈ bes
-    @test instance(Outer.callh, (Int,)) ∈ bes
-    @test instance(Outer.callh, (Float64,)) ∈ bes
-    @test instance(Outer.callcallh, (Int,)) ∈ bes
+    @test methodinstance(Outer.Inner.h, (Int,)) ∈ bes
+    @test methodinstance(Outer.Inner.h, (Float64,)) ∈ bes
+    @test methodinstance(Outer.callh, (Int,)) ∈ bes
+    @test methodinstance(Outer.callh, (Float64,)) ∈ bes
+    @test methodinstance(Outer.callcallh, (Int,)) ∈ bes
     @test length(bes) == 5
 
     Outer.f2(1, "hello")
     m = which(Outer.f2, (Int, String))
     tt = Tuple{typeof(Outer.f2),Int,String}
-    @test instance(Outer.f2, (Int, String)) === instance(m, tt) === instance(tt)
+    @test methodinstance(Outer.f2, (Int, String)) === methodinstance(m, tt) === methodinstance(tt)
 
     hbes = filter(mi->mi.def ∈ methods(Outer.Inner.h), bes)
     @test length(hbes) == 2
@@ -109,16 +119,16 @@ end
     @test length(bes) == 1
     pr = bes[1]
     @test pr.first == Tuple{typeof(f),Any}
-    @test pr.second == instance(applyf, (Vector{Any},))
+    @test pr.second == methodinstance(applyf, (Vector{Any},))
 
     bes = direct_backedges(f; skip=false)
     @test length(bes) == 2
     pr = bes[1]
     @test pr.first == Tuple{typeof(f),Any}
-    @test pr.second == instance(applyf, (Vector{Any},))
+    @test pr.second == methodinstance(applyf, (Vector{Any},))
     pr = bes[2]
-    @test pr.first == instance(f, (Integer,))
-    @test pr.second == instance(applyf, (Vector{Any},))
+    @test pr.first == methodinstance(f, (Integer,))
+    @test pr.second == methodinstance(applyf, (Vector{Any},))
 end
 
 @testset "call_type" begin
@@ -139,7 +149,7 @@ function applyf(container)
 end
 applyf(Any[1, true])
 
-const w = worlds(instance(applyf, (Vector{Any},)))
+const w = worlds(methodinstance(applyf, (Vector{Any},)))
 const src = code_typed(applyf, (Vector{Any},))[1]
 f(::Bool) = 2
 applyf(Any[1, true])
@@ -148,9 +158,50 @@ end
 @testset "Invalidation" begin
     if VERSION >= v"1.2"
         src, w = Invalidation.src, Invalidation.w
-        mi = instance(Invalidation.applyf, (Vector{Any},))
+        mi = methodinstance(Invalidation.applyf, (Vector{Any},))
         @test MethodAnalysis.equal(src, src)
         @test worlds(mi) != w
         @test !MethodAnalysis.equal(src, code_typed(Invalidation.applyf, (Vector{Any},))[1])
+    end
+end
+
+module Callers
+
+f(x) = rand()
+function g()
+    x = sin(π/2)
+    y = f(x)
+    z = round(Int, x)
+    y = f(z)
+    n = Any[7]
+    a = f(n[1])
+    b = f(n[1]::Integer)
+    c = f(n...)
+    return nothing
+end
+
+end
+
+if isdefined(MethodAnalysis, :findcallers)
+    @testset "findcallers" begin
+        Callers.g()
+        mis = methodinstances(Callers)
+        mi = methodinstance(Callers.g, ())
+        # Why are there no `:invoke`s, only `:call`s?
+        callers1 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Float64, mis; callhead=:invoke)
+        callers2 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Int, mis; callhead=:invoke)
+        callers3 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Any, mis; callhead=:call)
+        callers4 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Integer, mis; callhead=:call)
+        callers5 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Vector{Any}, mis; callhead=:iterate)
+        @test_broken callers1[1] == mi && callers1[3] < callers3[3]
+        @test_broken callers2[1] == mi && callers2[3] < callers4[3]
+        # Given that :invoke isn't showing up, grab callers1 & callers2 again
+        callers1 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Float64, mis; callhead=:call)
+        callers2 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Int, mis; callhead=:call)
+        allcallers = [callers1, callers2, callers3, callers4, callers5]
+        @test all(x->length(x) == 1, allcallers)
+        @test all(x->only(x)[1] == mi, allcallers)
+        stmtid = map(x->only(x)[3], allcallers)
+        @test issorted(stmtid) && length(unique(stmtid)) == 5
     end
 end

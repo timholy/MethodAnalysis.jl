@@ -3,9 +3,9 @@ module MethodAnalysis
 using AbstractTrees
 
 using Base: Callable, IdSet
-using Core: MethodInstance, SimpleVector, MethodTable
+using Core: MethodInstance, CodeInfo, SimpleVector, MethodTable
 
-export visit, call_type, instance, worlds
+export visit, call_type, methodinstance, methodinstances, worlds  # findcallers is exported from its own file
 export visit_backedges, all_backedges, with_all_backedges, terminal_backedges, direct_backedges
 
 include("visit.jl")
@@ -65,8 +65,8 @@ end
 equal(p1::Pair, p2::Pair) = p1.second == p2.second && equal(p1.first, p2.first)
 
 """
-    mi = instance(f, types)
-    mi = instance(tt::Type{<:Tuple})
+    mi = methodinstance(f, types)
+    mi = methodinstance(tt::Type{<:Tuple})
 
 Return the `MethodInstance` `mi` for function `f` and the given `types`,
 or for the complete signature `tt`.
@@ -79,18 +79,18 @@ julia> f(x, y::String) = 2x; f(x, y::Number) = x + y;
 
 julia> f(1, "hi"); f(1, 1.0);
 
-julia> instance(f, (Int, String))
+julia> methodinstance(f, (Int, String))
 MethodInstance for f(::Int64, ::String)
 
-julia> instance(Tuple{typeof(f), Int, String})
+julia> methodinstance(Tuple{typeof(f), Int, String})
 MethodInstance for f(::Int64, ::String)
 ```
 """
-function instance(@nospecialize(f), @nospecialize(types))
+function methodinstance(@nospecialize(f), @nospecialize(types))
     if types isa Tuple
         m = which(f, types)
         tt = Tuple{typeof(f), types...}
-        return instance(m, tt)
+        return methodinstance(m, tt)
     end
     inst = nothing
     visit(f) do mi
@@ -104,12 +104,40 @@ function instance(@nospecialize(f), @nospecialize(types))
     end
     return inst
 end
-function instance(@nospecialize(types))
+function methodinstance(@nospecialize(types))
     f, argt = call_type(types)
     m = which(f, argt)
-    return instance(m, types)
+    return methodinstance(m, types)
 end
 
+"""
+    methodinstances()
+    methodinstances(mod::Module)
+    methodinstances(f)
+
+Collect all `MethodInstance`s, optionally restricting them to a particular module or function.
+"""
+function methodinstances(top=())
+    if isa(top, Module) || isa(top, Function) || isa(top, Type)
+        top = (top,)
+    end
+    mis = Core.MethodInstance[]
+    visit(top...) do item
+        isa(item, Core.MethodInstance) || return true
+        push!(mis, item)
+        false
+    end
+    return mis
+end
+
+if isdefined(Core, :MethodMatch)
+    include("findcallers.jl")
+end
+
+# AbstractTrees interface
 AbstractTrees.children(mi::MethodInstance) = isdefined(mi, :backedges) ? mi.backedges : []
+
+# deprecations
+@deprecate instance methodinstance
 
 end # module
