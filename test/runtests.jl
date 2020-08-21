@@ -180,6 +180,9 @@ function g()
     return nothing
 end
 
+myzeros(::Type{T}, shp) where T = zeros(T, shp)
+h(c) = myzeros(Float32, c[1])
+
 end
 
 if isdefined(MethodAnalysis, :findcallers)
@@ -203,5 +206,17 @@ if isdefined(MethodAnalysis, :findcallers)
         @test all(x->only(x)[1] == mi, allcallers)
         stmtid = map(x->only(x)[3], allcallers)
         @test issorted(stmtid) && length(unique(stmtid)) == 5
+
+        Callers.h(AbstractUnitRange[Base.OneTo(3)])
+        mis = methodinstances(Callers)
+        callers = findcallers(Callers.myzeros, argtyps->length(argtyps) == 2 && argtyps[1] === Type{Float32} && AbstractUnitRange<:argtyps[2], mis)
+        c = only(callers)
+        @test c[1].def === which(Callers.h, (Any,))
+        @test c[4] == Any[Type{Float32}, AbstractUnitRange]
+        misz = methodinstances(zeros)
+        callers = findcallers(zeros, argtyps->length(argtyps) == 2 && argtyps[1] === Type{Float32} && Tuple{AbstractUnitRange}<:argtyps[2], misz)
+        allargtypes = last.(callers)
+        @test Any[Type{Float32}, Tuple{AbstractUnitRange}] ∈ allargtypes ||
+              Any[Type{Float32}, AbstractUnitRange] ∈ allargtypes
     end
 end
