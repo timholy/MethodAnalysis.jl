@@ -13,7 +13,7 @@ function get_typed_instances!(srcs, mi::MethodInstance, world, interp)
         (src, ty) = isdefined(Core.Compiler, :NativeInterpreter) ?
             Core.Compiler.typeinf_code(interp, meth, match.spec_types, match.sparams, false) :
             Core.Compiler.typeinf_code(meth, match.spec_types, match.sparams, false, interp)
-        push!(srcs, src)
+        push!(srcs, (src, match.sparams))
     end
     return srcs
 end
@@ -23,7 +23,7 @@ defaultinterp(world) = isdefined(Core.Compiler, :NativeInterpreter) ?
                        Core.Compiler.Params(world)
 
 function get_typed_instances(mi::MethodInstance; world=typemax(UInt), interp=defaultinterp(world))
-    return get_typed_instances!(CodeInfo[], mi, world, interp)
+    return get_typed_instances!(Tuple{CodeInfo,Core.SimpleVector}[], mi, world, interp)
 end
 
 """
@@ -75,13 +75,13 @@ function findcallers(f, argmatch::Union{Function,Nothing}, mis::AbstractVector{C
     # if callhead === :iterate
     #     return findcallers(mis, GlobalRef(Core, :_apply_iterate), argt->(argtargmatch(argt[4:end]); callhead=:call)
     # end
-    extract(a) = isa(a, Core.Const) ? typeof(a.val) :
+    extract(a) = isa(a, Core.Const) ? Core.Typeof(a.val) :
                  isa(a, Core.PartialStruct) ? (a.typ <: Tuple{Any} ? a.typ.parameters[1] : a.typ) :
-                 isa(a,Type) ? a : typeof(a)
+                 isa(a,Type) ? a : Core.Typeof(a)
     # Construct a GlobalRef version of `f`
     ref = GlobalRef(parentmodule(f), nameof(f))
     callers = Tuple{MethodInstance,CodeInfo,Int,Vector{Any}}[]
-    srcs = CodeInfo[]
+    srcs = Tuple{CodeInfo,Core.SimpleVector}[]
     for item in mis
         empty!(srcs)
         try
@@ -90,7 +90,7 @@ function findcallers(f, argmatch::Union{Function,Nothing}, mis::AbstractVector{C
             # println("skipping ", item, ": ", err)
             continue
         end
-        for src in srcs
+        for (src, sparams) in srcs
             for (i, stmt) in enumerate(src.code)
                 if isa(stmt, Expr)
                     g = nothing
@@ -117,6 +117,11 @@ function findcallers(f, argmatch::Union{Function,Nothing}, mis::AbstractVector{C
                                     push!(argtypes, extract(src.ssavaluetypes[a.id]))
                                 elseif isa(a, Core.SlotNumber)
                                     push!(argtypes, extract(src.slottypes[a.id]))
+                                elseif isa(a, GlobalRef)
+                                    push!(argtypes, Core.Typeof(getfield(a.mod, a.name)))
+                                elseif isexpr(a, :static_parameter)
+                                    a = a::Expr
+                                    push!(argtypes, Type{sparams[a.args[1]::Int]})
                                 else
                                     push!(argtypes, extract(a))
                                 end
