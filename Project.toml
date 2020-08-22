@@ -1,7 +1,7 @@
 name = "MethodAnalysis"
 uuid = "85b6ec6f-f7df-4429-9514-a64bcd9ee824"
 authors = ["Tim Holy <tim.holy@gmail.com>"]
-version = "0.3.1"
+version = "0.4.0"
 
 [deps]
 AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
@@ -11,7 +11,9 @@ AbstractTrees = "0.3"
 julia = "1"
 
 [extras]
+Logging = "56ddb016-857b-54e1-b83d-db4d58db5568"
+Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["Logging", "Pkg", "Test"]
