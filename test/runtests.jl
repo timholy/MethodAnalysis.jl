@@ -1,5 +1,7 @@
 using MethodAnalysis
 using Test
+using Logging
+using Pkg
 
 module Outer
     module Inner
@@ -180,9 +182,26 @@ function g()
     return nothing
 end
 
+# Constructors
 myzeros(::Type{T}, shp) where T = zeros(T, shp)
 h(c) = myzeros(Float32, c[1])
+k1(c) = Vector(c[1])
+k2(c) = Vector{Int}(c[1])
+# typeof constructor calls
+constrtypeof1(arg1, arg2) = typeof(arg2)(arg1)
+constrtypeof2(arg1, arg2) = typeof(sum(arg2))(arg1)
 
+# Keyword functions
+kw1(x; a=1, b=false) = x+a+b
+kw1c(x) = kw1(x; a=3)
+
+# Scoped calls
+callh() = Main.OtherModule.h(5)
+
+end
+
+module OtherModule
+    h(x) = 22
 end
 
 if isdefined(MethodAnalysis, :findcallers)
@@ -203,20 +222,70 @@ if isdefined(MethodAnalysis, :findcallers)
         callers2 = findcallers(Callers.f, argtyps->length(argtyps) == 1 && argtyps[1] === Int, mis; callhead=:call)
         allcallers = [callers1, callers2, callers3, callers4, callers5]
         @test all(x->length(x) == 1, allcallers)
-        @test all(x->only(x)[1] == mi, allcallers)
-        stmtid = map(x->only(x)[3], allcallers)
+        @test all(x->only(x).mi == mi, allcallers)
+        stmtid = map(x->only(x).line, allcallers)
         @test issorted(stmtid) && length(unique(stmtid)) == 5
 
-        Callers.h(AbstractUnitRange[Base.OneTo(3)])
+        c = AbstractUnitRange[Base.OneTo(3)]
+        Callers.h(c)
         mis = methodinstances(Callers)
         callers = findcallers(Callers.myzeros, argtyps->length(argtyps) == 2 && argtyps[1] === Type{Float32} && AbstractUnitRange<:argtyps[2], mis)
-        c = only(callers)
-        @test c[1].def === which(Callers.h, (Any,))
-        @test c[4] == Any[Type{Float32}, AbstractUnitRange]
+        cm = only(callers)
+        @test cm.mi.def === which(Callers.h, (Any,))
+        @test cm.argtypes == Any[Type{Float32}, AbstractUnitRange]
+        callers = findcallers(zeros, argtyps->length(argtyps) == 2 && argtyps[1] === Type{Float32} && AbstractUnitRange<:argtyps[2], mis)
+        cm = only(callers)
+        @test cm.mi.def === only(methods(Callers.myzeros))
+        @test cm.argtypes == Any[Type{Float32}, AbstractUnitRange]
         misz = methodinstances(zeros)
         callers = findcallers(zeros, argtyps->length(argtyps) == 2 && argtyps[1] === Type{Float32} && Tuple{AbstractUnitRange}<:argtyps[2], misz)
-        allargtypes = last.(callers)
+        allargtypes = map(cm->cm.argtypes, callers)
         @test Any[Type{Float32}, Tuple{AbstractUnitRange}] ∈ allargtypes ||
               Any[Type{Float32}, AbstractUnitRange] ∈ allargtypes
+
+        Callers.k1(c)
+        Callers.k2(c)
+        mis = methodinstances(Callers)
+        callers = findcallers(Vector, argtyps->length(argtyps) == 1 && AbstractUnitRange<:argtyps[1], mis)
+        allmeths = map(cm->cm.mi.def, callers)
+        @test length(allmeths) == 2 && only(methods(Callers.k1)) ∈ allmeths && only(methods(Callers.k2)) ∈ allmeths
+
+        @test Callers.constrtypeof1([0 1; 1 0], [true true; true false]) isa Matrix{Bool}
+        mis = methodinstances(Callers)
+        callers = findcallers(Matrix, nothing, mis)
+        cm = only(callers)
+        @test cm.mi.def === which(Callers.constrtypeof1, (Any,Any))
+        @test Callers.constrtypeof2(3.0, Float16[true true; true false]) isa Float16
+        mis = methodinstances(Callers)
+        callers = findcallers(Float16, nothing, mis)
+        cm = only(callers)
+        @test cm.mi.def === which(Callers.constrtypeof2, (Any,Any))
+
+        Callers.kw1c(2)
+        mis = methodinstances(Callers)
+        callers = findcallers(Callers.kw1, nothing, mis)
+        cm = only(callers)
+        @test cm.mi.def === which(Callers.kw1c, (Any,))
+
+        @test Callers.callh() == 22
+        # Callers.callcolors(Base.CoreLogging.Debug)
+        Logging.default_logcolor(Base.CoreLogging.Debug)
+        mis = append!(methodinstances(Callers), methodinstances(Logging.default_logcolor))
+        callers = findcallers(OtherModule.h, nothing, mis)
+        cm = only(callers)
+        @test cm.mi.def === which(Callers.callh, ())
+        append!(mis, methodinstances(Pkg.BinaryPlatforms))
+        callers2 = findcallers(OtherModule.h, nothing, mis)
+        @test length(callers2) == 1
+
+        # show
+        io = IOBuffer()
+        print(io, cm)
+        str = String(take!(io))
+        @test startswith(str, "CallMatch")
+        @test occursin("on statement", str)
+
+        # internals
+        @test !isempty(MethodAnalysis.get_typed_instances(cm.mi))
     end
 end
