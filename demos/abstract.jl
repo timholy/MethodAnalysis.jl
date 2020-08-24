@@ -2,19 +2,22 @@ using MethodAnalysis
 
 
 """
-    atrisktyp(tt)
+    is_atrisk_type(tt)
 
 Given a Tuple-type signature (e.g., `Tuple{typeof(sum),Vector{Int}}`), determine whether this signature
 is "at risk" for invalidation. Essentially it returns `true` if one or more arguments are of abstract type,
 although there are prominent exceptions:
 
-- `Function` is allowed
-- any constructor call is allowed
-- `convert(X, x)` where `isa(x, X)` is true
-- `setindex!` and `push!` methods where the valtype is a subtype of the eltype (likewise keytype for AbstractDicts)
+- Constructor calls with arbitrary argument types
+- `convert(X, x)` where `isa(x, X)`
+- `setindex!` and `push!` methods where the valtype is a subtype of the eltype (likewise the keytype for AbstractDicts)
 - `getindex`, `length`, `isempty`, and `iterate` on any tuple
+
+All of these are "allowed," meaning that they return `false`.
+Moreover, `Function` argument types do not trigger a return of `true`,
+although other at-risk argument types can lead to an overall `true` return.
 """
-function atrisktype(@nospecialize(typ))
+function is_atrisk_type(@nospecialize(typ))
     # signatures like `convert(Vector, a)`, `foo(::Vararg{Synbol,N}) where N` do not seem to pose a problem
     isa(typ, TypeVar) && return false
     # isbits parameters are not a problem
@@ -24,7 +27,7 @@ function atrisktype(@nospecialize(typ))
     end
     # Exclude signatures with Union{}
     typ === Union{} && return false
-    isa(typ, Union) && return atrisktype(typ.a) | atrisktype(typ.b)
+    isa(typ, Union) && return is_atrisk_type(typ.a) | is_atrisk_type(typ.b)
     # Type{T}: signatures like `convert(::Type{AbstractString}, ::String)` are not problematic
     typ <: Type && return false
     if typ <: Tuple && length(typ.parameters) >= 1
@@ -53,9 +56,9 @@ function atrisktype(@nospecialize(typ))
             end
         # show(io::IO, x) is OK as long as typeof(x) is safe
         elseif p1 === typeof(Base.show) || p1 === typeof(Base.print) || p1 === typeof(Base.println)
-            # atrisktype(typ.parameters[2]) && return true
+            # is_atrisk_type(typ.parameters[2]) && return true
             for i = 3:length(typ.parameters)
-                atrisktype(typ.parameters[i]) && return true
+                is_atrisk_type(typ.parameters[i]) && return true
             end
             return false
         # setindex!(a, x, idx) and push!(a, x) are safe if typeof(x) <: eltype(a)
@@ -75,28 +78,28 @@ function atrisktype(@nospecialize(typ))
     isconcretetype(typ) && return false
     # ::Function args are excluded
     typ === Function && return false
-    !isempty(typ.parameters) && (any(atrisktype, typ.parameters) || return false)
+    !isempty(typ.parameters) && (any(is_atrisk_type, typ.parameters) || return false)
     return true
 end
 
-@assert  atrisktype(Tuple{typeof(==),Any,Any})
-@assert  atrisktype(Tuple{typeof(==),Symbol,Any})
-@assert  atrisktype(Tuple{typeof(==),Any,Symbol})
-@assert !atrisktype(Tuple{typeof(==),Symbol,Symbol})
-@assert !atrisktype(Tuple{typeof(convert),Type{Any},Any})
-@assert !atrisktype(Tuple{typeof(convert),Type{AbstractString},AbstractString})
-@assert !atrisktype(Tuple{typeof(convert),Type{AbstractString},String})
-@assert  atrisktype(Tuple{typeof(convert),Type{String},AbstractString})
-@assert !atrisktype(Tuple{typeof(map),Function,Vector{Any}})
-@assert !atrisktype(Tuple{typeof(getindex),Dict{Union{String,Int},Any},Union{String,Int}})
-@assert  atrisktype(Tuple{typeof(getindex),Dict{Union{String,Int},Any},Any})
-@assert !atrisktype(Tuple{Type{BoundsError},Any,Any})
-@assert  atrisktype(Tuple{typeof(sin),Any})
-@assert !atrisktype(Tuple{typeof(length),Tuple{Any,Any}})
-@assert  atrisktype(Tuple{typeof(setindex!),Vector{Int},Any,Int})
-@assert !atrisktype(Tuple{typeof(setindex!),Vector{Any},Any,Int})
-@assert  atrisktype(Tuple{typeof(push!),Vector{Int},Any})
-@assert !atrisktype(Tuple{typeof(push!),Vector{Any},Any})
+@assert  is_atrisk_type(Tuple{typeof(==),Any,Any})
+@assert  is_atrisk_type(Tuple{typeof(==),Symbol,Any})
+@assert  is_atrisk_type(Tuple{typeof(==),Any,Symbol})
+@assert !is_atrisk_type(Tuple{typeof(==),Symbol,Symbol})
+@assert !is_atrisk_type(Tuple{typeof(convert),Type{Any},Any})
+@assert !is_atrisk_type(Tuple{typeof(convert),Type{AbstractString},AbstractString})
+@assert !is_atrisk_type(Tuple{typeof(convert),Type{AbstractString},String})
+@assert  is_atrisk_type(Tuple{typeof(convert),Type{String},AbstractString})
+@assert !is_atrisk_type(Tuple{typeof(map),Function,Vector{Any}})
+@assert !is_atrisk_type(Tuple{typeof(getindex),Dict{Union{String,Int},Any},Union{String,Int}})
+@assert  is_atrisk_type(Tuple{typeof(getindex),Dict{Union{String,Int},Any},Any})
+@assert !is_atrisk_type(Tuple{Type{BoundsError},Any,Any})
+@assert  is_atrisk_type(Tuple{typeof(sin),Any})
+@assert !is_atrisk_type(Tuple{typeof(length),Tuple{Any,Any}})
+@assert  is_atrisk_type(Tuple{typeof(setindex!),Vector{Int},Any,Int})
+@assert !is_atrisk_type(Tuple{typeof(setindex!),Vector{Any},Any,Int})
+@assert  is_atrisk_type(Tuple{typeof(push!),Vector{Int},Any})
+@assert !is_atrisk_type(Tuple{typeof(push!),Vector{Any},Any})
 
 isexported(mi::Core.MethodInstance) = isdefined(Main, mi.def.name)
 getfunc(mi::Core.MethodInstance) = getfunc(mi.def)
@@ -124,7 +127,7 @@ end
 const becounter = Dict{Core.MethodInstance,Int}()
 visit() do item
     if item isa Core.MethodInstance && !fromcc(item.def.module)
-        if atrisktype(item.specTypes)
+        if is_atrisk_type(item.specTypes)
             becounter[item] = length(all_backedges(item))
         end
         return false
