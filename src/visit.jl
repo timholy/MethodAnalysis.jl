@@ -100,6 +100,18 @@ function _visit(@nospecialize(operation), @nospecialize(f::Callable), visited::I
     return nothing
 end
 
+function _visit(@nospecialize(operation), ml::Base.MethodList, visited::IdSet{Any}, print::Bool)
+    ml ∈ visited && return nothing
+    push!(visited, ml)
+    print && println("MethodList ", ml)
+    _visit(operation, ml.mt, visited, print)
+    for m in ml.ms
+        _visit(operation, m, visited, print)
+    end
+    return nothing
+end
+
+
 function _visit(@nospecialize(operation), mt::MethodTable, visited::IdSet{Any}, print::Bool)
     mt ∈ visited && return nothing
     push!(visited, mt)
