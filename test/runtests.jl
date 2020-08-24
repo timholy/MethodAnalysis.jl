@@ -79,6 +79,14 @@ end
     @test mis isa Vector{Core.MethodInstance}
     @test mi ∈ mis
     @test length(mis) > 1
+
+    mi = methodinstance(convert, (Type{String}, String))
+    mis = methodinstances(methods(convert, (Type{String}, Any)))
+    @test length(mis) > 10  # in fact, there are many more
+    @test mi ∈ mis
+    mis = methodinstances(which(convert, (Type{String}, AbstractString)))
+    @test length(mis) > 2
+    @test mi ∉ mis   # that's covered by a different Method
 end
 
 @testset "Backedges" begin

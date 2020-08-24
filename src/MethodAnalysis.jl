@@ -116,10 +116,10 @@ end
     methodinstances(mod::Module)
     methodinstances(f)
 
-Collect all `MethodInstance`s, optionally restricting them to a particular module or function.
+Collect all `MethodInstance`s, optionally restricting them to a particular module, function, method, or methodlist.
 """
 function methodinstances(top=())
-    if isa(top, Module) || isa(top, Function) || isa(top, Type)
+    if isa(top, Module) || isa(top, Function) || isa(top, Type) || isa(top, Method) || isa(top, Base.MethodList)
         top = (top,)
     end
     mis = Core.MethodInstance[]
