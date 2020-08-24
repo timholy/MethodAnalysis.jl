@@ -1,3 +1,7 @@
+# Do `include("abstract.jl")` on two Julia versions and then run this script.
+# You will likely have to change the path for `sigstable` below.
+# Typically this should be run using the in-development version of Julia (or whatever "latest" is in your comparison)
+
 using PyPlot
 
 function parseline(line)
@@ -41,10 +45,23 @@ function split_comparable(sigc1, sigc2)
     return sigs, c1, c2
 end
 
-sigc16 = parsedata("/tmp/methdata_$VERSION.log")
-sigc14 = parsedata("/tmp/methdata_1.4.3-pre.0.log")
+function tally0(c1, c2)
+    nz1, nz2 = 0, 0
+    for (a1, a2) in zip(c1, c2)
+        a1 == a2 == 0 && continue
+        a1 == 0 && (nz1 += 1)
+        a2 == 0 && (nz2 += 1)
+    end
+    return nz1, nz2
+end
 
-sigs, c1, c2 = split_comparable(sigc14, sigc16)
+sigmaster = parsedata("/tmp/methdata_$VERSION.log")
+sigstable, stablever = parsedata("/tmp/methdata_1.5.1-pre.29.log"), "1.5"
+# sigstable, stablever = parsedata("/tmp/methdata_1.4.2.log"), "1.4"
+
+sigs, c1, c2 = split_comparable(sigstable, sigmaster)
+nz1, nz2 = tally0(c1, c2)
+println("$stablever has $nz1 with no backedges, master has $nz2")
 mx1, mx2 = maximum(c1), maximum(c2)
 isexported(sig) = (ft = Base.unwrap_unionall(sig).parameters[1]; isdefined(Main, ft.name.mt.name))
 colors = [isexported(sig) ? "magenta" : "green" for sig in sigs]
@@ -56,52 +73,26 @@ function on_click(event)
     println(sigs[idx])
 end
 begin
+    hfig, axs = plt.subplots(2, 1)
+    plt.subplots_adjust(hspace=0.3)
+    logedges = LinRange(0, log10(max(mx1, mx2)+2), 30)
+    ax = axs[1]
+    ax.hist(log10.(c1 .+ 1), bins=logedges)
+    ax.set_xlabel("log₁₀(# backedges + 1), $stablever")
+    ax.set_ylabel("# 'at risk' signatures")
+    ax = axs[2]
+    ax.hist(log10.(c2 .+ 1), bins=logedges)
+    ax.set_xlabel("log₁₀(# backedges + 1), 1.6")
+    ax.set_ylabel("# 'at risk' signatures")
+
+    display(hfig)
     fig, ax = plt.subplots()
     ax.scatter(c1 .+ 1, c2 .+ 1, c=colors)  # + 1 for the log-scaling
-    ax.set_xlabel("# backedges + 1, 1.4")
+    ax.set_xlabel("# backedges + 1, $stablever")
     ax.set_ylabel("# backedges + 1, 1.6")
     ax.set_xscale("log")
     ax.set_yscale("log")
+    ax.set_aspect("equal")
     fig.canvas.callbacks.connect("button_press_event", on_click)
     fig
 end
-
-# Ones we've made progress on:
-# ==(::Any, Symbol)
-# ==(::Symbol, ::Any)
-# ==(::Any, ::Nothing)
-# ==(::UUID, ::Any)
-# ==(::AbstractString, ::String)
-# isequal(::Symbol, ::Any)
-# isequal(::Any, ::Symbol)
-# isequal(::Any, ::Nothing)
-# isequal(::UUID, ::Any)
-# cmp(::AbstractString, ::String)
-# convert(::Type{Int}, ::Integer)
-# convert(::Type{UInt}, ::Integer)
-# convert(::Type{Union{Nothing,Module}}, ::Any)
-# Base.to_index(::Integer)
-# iterate(::Base.OneTo, ::Any)
-# repr(::Any)
-# thisind(::AbstractString, ::Int)
-# getindex(::String, ::Any)
-# string(::String, ::Integer, ::String)
-# ^(::String, ::Integer)
-# repeat(::String, ::Integer)
-# Base.isidentifier(::AbstractString)
-# +(::Ptr{UInt8}, ::Integer)
-# Base._show_default(::Base.GenericIOBuffer{Array{UInt8,1}}, ::Any)
-
-# Ones that are better but I don't remember helping with
-# isconcretetype(::Any)
-# pointer(::String, ::Integer)
-
-# Regressions:
-# basename(::AbstractString)
-# splitdir(::AbstractString)
-# isfile(::Any)
-# joinpath(::AbstractString, ::String)
-# sizeof(::Unsigned)
-# +(::Int, ::Any, ::Any)
-# Base.split_sign(::Integer)
-# in(::Any, ::Tuple{Symbol})
