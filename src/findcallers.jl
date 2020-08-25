@@ -1,14 +1,13 @@
 export findcallers
 
-function get_typed_instances!(srcs, mi::MethodInstance, world, interp)
-    # This is essentially take from code_typed_by_type
-    tt = mi.specTypes
+function get_typed_instances!(srcs, @nospecialize(tt), method::Method, world, interp)
+    # This is essentially taken from code_typed_by_type
     matches = Base._methods_by_ftype(tt, -1, world)
     if matches === false
         error("signature $(item.specTypes) does not correspond to a generic function")
     end
     for match in matches
-        match.method == mi.def || continue
+        match.method == method || continue
         meth = Base.func_for_method_checked(match.method, tt, match.sparams)
         (src, ty) = isdefined(Core.Compiler, :NativeInterpreter) ?
             Core.Compiler.typeinf_code(interp, meth, match.spec_types, match.sparams, false) :
@@ -17,6 +16,7 @@ function get_typed_instances!(srcs, mi::MethodInstance, world, interp)
     end
     return srcs
 end
+get_typed_instances!(srcs, mi::MethodInstance, world, interp) = get_typed_instances!(srcs, mi.specTypes, mi.def, world, interp)
 
 defaultinterp(world) = isdefined(Core.Compiler, :NativeInterpreter) ?
                        Core.Compiler.NativeInterpreter(world) :
@@ -24,6 +24,9 @@ defaultinterp(world) = isdefined(Core.Compiler, :NativeInterpreter) ?
 
 function get_typed_instances(mi::MethodInstance; world=typemax(UInt), interp=defaultinterp(world))
     return get_typed_instances!(Tuple{CodeInfo,Core.SimpleVector}[], mi, world, interp)
+end
+function get_typed_instances(@nospecialize(tt), method::Method; world=typemax(UInt), interp=defaultinterp(world))
+    return get_typed_instances!(Tuple{CodeInfo,Core.SimpleVector}[], tt, method, world, interp)
 end
 
 struct CallMatch
