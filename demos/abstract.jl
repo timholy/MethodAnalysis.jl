@@ -1,6 +1,5 @@
 using MethodAnalysis
 
-
 """
     is_atrisk_type(tt)
 
@@ -10,12 +9,13 @@ although there are prominent exceptions:
 
 - Constructor calls with arbitrary argument types
 - `convert(X, x)` where `isa(x, X)`
-- `setindex!` and `push!` methods where the valtype is a subtype of the eltype (likewise the keytype for AbstractDicts)
+- `setindex!` and `push!` methods where the valtype is a subtype of the eltype (for AbstractDicts, likewise for the keytype)
 - `getindex`, `length`, `isempty`, and `iterate` on any tuple
 
 All of these are "allowed," meaning that they return `false`.
-Moreover, `Function` argument types do not trigger a return of `true`,
-although other at-risk argument types can lead to an overall `true` return.
+Moreover, some specific non-concrete argument types---like `Union`s of concrete types and `Function`---
+do not trigger a return of `true`, although other at-risk argument types can lead to an overall `true` return
+for the signature.
 """
 function is_atrisk_type(@nospecialize(typ))
     # signatures like `convert(Vector, a)`, `foo(::Vararg{Synbol,N}) where N` do not seem to pose a problem
@@ -41,6 +41,9 @@ function is_atrisk_type(@nospecialize(typ))
                 p2 = Base.unwrap_unionall(p2)
                 if isa(p2, DataType) && length(p2.parameters) === 1
                     T = p2.parameters[1]
+                    if isa(T, TypeVar)
+                        T = T.ub
+                    end
                     isa(p3, Type) && isa(T, Type) && p3 <: T && return false
                 end
             end
@@ -90,6 +93,10 @@ end
 @assert !is_atrisk_type(Tuple{typeof(convert),Type{AbstractString},AbstractString})
 @assert !is_atrisk_type(Tuple{typeof(convert),Type{AbstractString},String})
 @assert  is_atrisk_type(Tuple{typeof(convert),Type{String},AbstractString})
+@assert !is_atrisk_type(Tuple{typeof(convert),Type{Union{Int,Float32}},Int})
+@assert !is_atrisk_type(Tuple{typeof(convert),Type{Union{Int,Float32}},Int32})
+@assert  is_atrisk_type(Tuple{typeof(convert),Type{Union{Int,Float32}},Integer})
+@assert !is_atrisk_type(Tuple{typeof(convert),Type{T} where T<:Union{Int,Float32},Int})
 @assert !is_atrisk_type(Tuple{typeof(map),Function,Vector{Any}})
 @assert !is_atrisk_type(Tuple{typeof(getindex),Dict{Union{String,Int},Any},Union{String,Int}})
 @assert  is_atrisk_type(Tuple{typeof(getindex),Dict{Union{String,Int},Any},Any})
@@ -101,7 +108,19 @@ end
 @assert  is_atrisk_type(Tuple{typeof(push!),Vector{Int},Any})
 @assert !is_atrisk_type(Tuple{typeof(push!),Vector{Any},Any})
 
-isexported(mi::Core.MethodInstance) = isdefined(Main, mi.def.name)
+# Get the name of a method as written in the code. This strips keyword-method mangling.
+function codename(sym::Symbol)
+    symstr = String(sym)
+    # Body methods
+    m = match(r"^#(.*?)#\d+$", symstr)
+    m !== nothing && return Symbol(only(m.captures))
+    # kw methods
+    m = match(r"^(.*?)##kw$", symstr)
+    m !== nothing && return Symbol(only(m.captures))
+    return sym
+end
+
+isexported(mi::Core.MethodInstance) = isdefined(Main, codename(mi.def.name))
 getfunc(mi::Core.MethodInstance) = getfunc(mi.def)
 getfunc(m::Method) = getfield(m.module, m.name)
 nmethods(mi::Core.MethodInstance) = length(methods(getfunc(mi)))
@@ -144,15 +163,12 @@ open("/tmp/methdata_$VERSION.log", "w") do io
 end
 
 # Split into exported & private functions
-mtup = (nmethods = 0, nbackedges = 0)
-miexp = Pair{Core.MethodInstance,typeof(mtup)}[]
+miexp = Pair{Core.MethodInstance,Int}[]
 mipriv = similar(miexp)
 for (mi, c) in prs
-    n = nmethods(mi)
-    pr = mi=>(nmethods=n, nbackedges=c)
     if isexported(mi)
-        push!(miexp, pr)
+        push!(miexp, mi=>c)
     else
-        push!(mipriv, pr)
+        push!(mipriv, mi=>c)
     end
 end
