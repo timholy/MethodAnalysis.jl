@@ -107,10 +107,12 @@ end
     @test methodinstance(Outer.callcallh, (Int,)) ∈ bes
     @test length(bes) == 5
 
+    tt = Tuple{typeof(Outer.f2),Int,String}
+    @test methodinstance(tt) === methodinstance(Outer.f2, (Int, String)) === nothing
     Outer.f2(1, "hello")
     m = which(Outer.f2, (Int, String))
-    tt = Tuple{typeof(Outer.f2),Int,String}
     @test methodinstance(Outer.f2, (Int, String)) === methodinstance(m, tt) === methodinstance(tt)
+    @test methodinstance(tt) !== nothing
 
     hbes = filter(mi->mi.def ∈ methods(Outer.Inner.h), bes)
     @test length(hbes) == 2
