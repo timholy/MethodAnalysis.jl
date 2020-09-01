@@ -89,9 +89,8 @@ MethodInstance for f(::Int64, ::String)
 """
 function methodinstance(@nospecialize(f), @nospecialize(types))
     if types isa Tuple
-        m = which(f, types)
         tt = Tuple{typeof(f), types...}
-        return methodinstance(m, tt)
+        return methodinstance(f, tt)
     end
     inst = nothing
     visit(f) do mi
@@ -107,8 +106,7 @@ function methodinstance(@nospecialize(f), @nospecialize(types))
 end
 function methodinstance(@nospecialize(types))
     f, argt = call_type(types)
-    m = which(f, argt)
-    return methodinstance(m, types)
+    return methodinstance(f, types)
 end
 
 """
