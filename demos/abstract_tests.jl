@@ -50,8 +50,8 @@ end
 # Test overall number of atrisk MethodInstances and their average number of backedges
 badexp = Set(remove_unlikely_methodinstances(first.(miexp)))
 badcounts = filter(pr->pr.first ∈ badexp, miexp)
-@test length(badcounts) < 1000
-if length(badcounts) < 800
+@test length(badcounts) < 1250  # original target 1000
+if length(badcounts) < 1000 # 800
     @info "There are now only $(length(badcounts)) at-risk specializations of exported methods, consider dropping the threshold"
 end
 meancounts = sum(last.(badcounts))/length(badcounts)
@@ -153,7 +153,7 @@ end
 @test function_returns(isxdigit, Bool)
 @test_broken function_returns(iszero, Bool)
 
-@test_broken function_returns(eof, Bool)  # just the Pkg.TOML one is broken
+@test function_returns(eof, Bool)
 
 # Check that we never infer certain methodinstances
 for f in (==, isequal, <, <=)
