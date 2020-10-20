@@ -52,7 +52,7 @@ julia> foo(::AbstractVector) = 1
 foo (generic function with 1 method)
 
 julia> methodinstance(foo, (Vector{Int},))   # we haven't called it yet, so it's not compiled
-MethodInstance for foo(::Vector{Int64})
+
 
 julia> foo([1,2])
 1
@@ -82,7 +82,7 @@ We checked that the length was 2, rather than 1, because the first parameter is 
 
 ```jldoctest findfirst
 julia> mis[1].specTypes
-Tuple{typeof(findfirst),BitVector}
+Tuple{typeof(findfirst), BitVector}
 ```
 
 There's also a convenience shortcut:
@@ -97,10 +97,13 @@ Let's see all the compiled instances of `Base.setdiff` and their immediate calle
 
 ```jldoctest; setup=(using MethodAnalysis)
 julia> direct_backedges(setdiff)
-3-element Vector{Any}:
- MethodInstance for setdiff(::Base.KeySet{Any,Dict{Any,Any}}, ::Base.KeySet{Any,Dict{Any,Any}}) => MethodInstance for keymap_merge(::Dict{Char,Any}, ::Dict{Any,Any})
- MethodInstance for setdiff(::Base.KeySet{Any,Dict{Any,Any}}, ::Base.KeySet{Any,Dict{Any,Any}}) => MethodInstance for keymap_merge(::Any, ::Dict{Any,Any})
-                           MethodInstance for setdiff(::Vector{Base.UUID}, ::Vector{Base.UUID}) => MethodInstance for deps_graph(::Pkg.Types.Context, ::Dict{Base.UUID,String}, ::Dict{Base.UUID,Pkg.Types.VersionSpec}, ::Dict{Base.UUID,Pkg.Resolve.Fixed})
+6-element Vector{Any}:
+     MethodInstance for setdiff(::Base.KeySet{Any, Dict{Any, Any}}, ::Base.KeySet{Any, Dict{Any, Any}}) => MethodInstance for keymap_merge(::Dict{Char, Any}, ::Dict{Any, Any})
+     MethodInstance for setdiff(::Base.KeySet{Any, Dict{Any, Any}}, ::Base.KeySet{Any, Dict{Any, Any}}) => MethodInstance for keymap_merge(::Dict{Char, Any}, ::Union{Dict{Any, Any}, Dict{Char, Any}})
+   MethodInstance for setdiff(::Base.KeySet{Char, Dict{Char, Any}}, ::Base.KeySet{Any, Dict{Any, Any}}) => MethodInstance for keymap_merge(::Dict{Char, Any}, ::Union{Dict{Any, Any}, Dict{Char, Any}})
+   MethodInstance for setdiff(::Base.KeySet{Any, Dict{Any, Any}}, ::Base.KeySet{Char, Dict{Char, Any}}) => MethodInstance for keymap_merge(::Dict{Char, Any}, ::Union{Dict{Any, Any}, Dict{Char, Any}})
+ MethodInstance for setdiff(::Base.KeySet{Char, Dict{Char, Any}}, ::Base.KeySet{Char, Dict{Char, Any}}) => MethodInstance for keymap_merge(::Dict{Char, Any}, ::Union{Dict{Any, Any}, Dict{Char, Any}})
+                                   MethodInstance for setdiff(::Vector{Base.UUID}, ::Vector{Base.UUID}) => MethodInstance for deps_graph(::Pkg.Types.Context, ::Dict{Base.UUID, String}, ::Dict{Base.UUID, Pkg.Types.VersionSpec}, ::Dict{Base.UUID, Pkg.Resolve.Fixed})
 ```
 
 ### Printing backedges as a tree
@@ -114,9 +117,12 @@ MethodInstance for findfirst(::BitVector)
 julia> MethodAnalysis.print_tree(mi)
 MethodInstance for findfirst(::BitVector)
 ├─ MethodInstance for prune_graph!(::Graph)
-│  └─ MethodInstance for #simplify_graph!#111(::Bool, ::typeof(simplify_graph!), ::Graph, ::Set{Int64})
+│  └─ MethodInstance for var"#simplify_graph!#111"(::Bool, ::typeof(simplify_graph!), ::Graph, ::Set{Int64})
 │     └─ MethodInstance for simplify_graph!(::Graph, ::Set{Int64})
 │        └─ MethodInstance for simplify_graph!(::Graph)
+│           ├─ MethodInstance for trigger_failure!(::Graph, ::Vector{Int64}, ::Tuple{Int64, Int64})
+│           │  ⋮
+│           │
 │           └─ MethodInstance for resolve_versions!(::Context, ::Vector{PackageSpec})
 │              ⋮
 │
@@ -136,7 +142,7 @@ MethodInstance for findfirst(::BitVector)
       │
       └─ MethodInstance for maxsum(::Graph)
          └─ MethodInstance for resolve(::Graph)
-            ├─ MethodInstance for trigger_failure!(::Graph, ::Vector{Int64}, ::Tuple{Int64,Int64})
+            ├─ MethodInstance for trigger_failure!(::Graph, ::Vector{Int64}, ::Tuple{Int64, Int64})
             │  ⋮
             │
             └─ MethodInstance for resolve_versions!(::Context, ::Vector{PackageSpec})
@@ -184,4 +190,10 @@ methodinstances
 call_type
 findcallers
 worlds
+```
+
+### types
+
+```@docs
+MethodAnalysis.CallMatch
 ```
