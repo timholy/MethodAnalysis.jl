@@ -29,6 +29,17 @@ function get_typed_instances(@nospecialize(tt), method::Method; world=typemax(UI
     return get_typed_instances!(Tuple{CodeInfo,Core.SimpleVector}[], tt, method, world, interp)
 end
 
+"""
+    CallMatch
+
+A structure to summarize a "matching" caller/callee pair. The fields are:
+
+- `mi`: the `MethodInstance` for the caller
+- `src`: its corresponding `CodeInfo`
+- `sparams`: the type parameters for the caller, given `mi`'s signature (alternatively use `mi.sparam_vals`)
+- `line`: the statement number (in SSAValue sense) on which the call occurs
+- `argtypes`: the caller's inferred types passed as arguments to the callee
+"""
 struct CallMatch
     mi::MethodInstance
     src::CodeInfo
@@ -50,8 +61,7 @@ Optionally pass `nothing` for `argmatch` to allow any calls to `f`.
 
 `callhead` controls whether you're looking for an ordinary (`:call`) or a splatted (varargs) call (`:iterate`).
 
-`callers` is a vector of tuples `t`, where `t[1]` is the `MethodInstance`, `t[2]` is the corresponding `CodeInfo`,
-`t[3]` is the statement number on which the call occurs, and `t[4]` holds the inferred argument types.
+`callers` is a vector of [`CallMatch`](@ref) objects.
 
 # Examples
 
@@ -76,6 +86,7 @@ callers2 = findcallers(f, argtyps->length(argtyps) == 1 && argtyps[1] === Intege
 
 # Get the splat call
 callers3 = findcallers(f, argtyps->length(argtyps) == 1 && argtyps[1] === Vector{Any}, mis; callhead=:iterate)
+```
 
 !!! compat
     `findcallers` is available on Julia 1.6 and higher
