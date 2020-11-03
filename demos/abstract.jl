@@ -71,10 +71,14 @@ function is_atrisk_type(@nospecialize(typ))
                 if p2 <: AbstractDict && length(typ.parameters) >= 4
                     p4 = typ.parameters[4]
                     p3 <: valtype(p2) && p4 <: keytype(p2) && return false
+                    p2 <: IdDict && return false   # these are annotated @nospecialize
                 else
                     p3 <: eltype(p2) && return false
                 end
             end
+        # vararg `string` methods should not be specialized
+        elseif p1 === typeof(Base.string) && length(typ.parameters) > 2
+            return false
         end
     end
     # Standard DataTypes
