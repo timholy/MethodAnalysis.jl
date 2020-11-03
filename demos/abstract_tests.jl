@@ -117,7 +117,7 @@ end
 @test function_returns(ismissing, Bool)
 @test function_returns(ismount, Bool)
 @test function_returns(ismutable, Bool)
-@test_broken function_returns(isnan, Bool)
+@test function_returns(isnan, Bool)
 @test function_returns(isnothing, Bool)
 @test function_returns(isnumeric, Bool)
 @test_broken function_returns(isodd, Bool)
@@ -125,7 +125,7 @@ end
 @test_broken function_returns(isopen, Bool)
 @test function_returns(ispath, Bool)
 @test_broken function_returns(isperm, Bool)
-@test function_returns(ispow2, Bool)
+@test_broken function_returns(ispow2, Bool)
 @test function_returns(isprimitivetype, Bool)
 @test function_returns(isprint, Bool)
 @test function_returns(ispunct, Bool)
@@ -157,7 +157,7 @@ end
 
 # Check that we never infer certain methodinstances
 for f in (==, isequal, <, <=)
-    for mi in methodinstances(==)
+    for mi in methodinstances(f)
         if any(T->T<:Real, mi.specTypes.parameters)
             @test !is_atrisk_type(mi.specTypes)
         end
