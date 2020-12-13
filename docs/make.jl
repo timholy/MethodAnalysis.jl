@@ -1,5 +1,8 @@
 using Documenter, MethodAnalysis
 
+using InteractiveUtils
+display(versioninfo())
+
 makedocs(;
     modules=[MethodAnalysis],
     format=Documenter.HTML(),
@@ -13,4 +16,5 @@ makedocs(;
 
 deploydocs(;
     repo="github.com/timholy/MethodAnalysis.jl",
+    push_preview=true,
 )
