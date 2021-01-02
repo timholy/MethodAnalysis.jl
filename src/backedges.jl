@@ -52,7 +52,7 @@ end
 
 Collect all backedges for a function `f` as pairs `instance=>caller` or `sig=>caller` pairs.
 The latter occur for MethodTable backedges.
-If `skip` is `true`, any `caller` listed in a MethodTable backedge is omitted from the instance backedges. 
+If `skip` is `true`, any `caller` listed in a MethodTable backedge is omitted from the instance backedges.
 """
 function direct_backedges(f::Union{Method,Callable}; skip::Bool=true)
     bes = []
@@ -82,4 +82,18 @@ function direct_backedges(f::Union{Method,Callable}; skip::Bool=true)
         true
     end
     return bes
+end
+
+"""
+    direct_backedges(mi::MethodInstance)
+
+A vector of all direct backedges of `mi`. This is equivalent to `mi.backedges` except that it's "safe,"
+meaning it returns an empty list even when `mi.backedges` is not defined.
+"""
+function direct_backedges(mi::MethodInstance)
+    out = MethodInstance[]
+    if isdefined(mi, :backedges)
+        append!(out, mi.backedges)
+    end
+    return out
 end

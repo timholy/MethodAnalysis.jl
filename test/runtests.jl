@@ -141,6 +141,14 @@ end
     pr = bes[2]
     @test pr.first == methodinstance(f, (Integer,))
     @test pr.second == methodinstance(applyf, (Vector{Any},))
+
+    nocallers(x) = x
+    nocallers(3)
+    mi = methodinstance(nocallers, (Int,))
+    @test isempty(direct_backedges(mi))
+    callnocallers(x) = nocallers(x)
+    callnocallers(3)
+    @test !isempty(direct_backedges(mi))
 end
 
 @testset "call_type" begin
