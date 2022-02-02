@@ -8,6 +8,7 @@ using Base.Meta: isexpr
 
 export visit, call_type, methodinstance, methodinstances, worlds  # findcallers is exported from its own file
 export visit_backedges, all_backedges, with_all_backedges, terminal_backedges, direct_backedges
+export hasbox
 
 include("visit.jl")
 include("backedges.jl")
@@ -189,6 +190,29 @@ function methodinstances(@nospecialize(types::Type))
     return methodinstances(f, types)
 end
 
+if isdefined(Base, :code_typed_by_type)
+    function hasbox(mi::MethodInstance)
+        try
+            srcs = Base.code_typed_by_type(mi.specTypes)
+            for (ci, rt) in srcs
+                (any(==(Core.Box), ci.slottypes) || any(==(Core.Box), ci.ssavaluetypes)) && return true
+            end
+            return false
+        catch
+            return false
+        end
+    end
+else
+    hasbox(mi::MethodInstance) = error("hasbox requires at least Julia 1.6")
+end
+
+"""
+    hasbox(mi::MethodInstance)
+
+Return `true` if the code for `mi` has a `Core.Box`. This often arises from a limitation in Julia's type-inference,
+see https://docs.julialang.org/en/v1/manual/performance-tips/#man-performance-captured.
+"""
+hasbox
 
 if isdefined(Core, :MethodMatch)
     include("findcallers.jl")

@@ -198,6 +198,28 @@ end
     end
 end
 
+if isdefined(Base, :code_typed_by_type)
+    @testset "hasbox" begin
+        function abmult(r::Int)
+            if r < 0
+                r = -r
+            end
+            f = x -> x * r
+            return f
+        end
+        abmult(1)
+        mi = methodinstance(abmult, (Int,))
+        @test hasbox(mi)
+        function abmult2(r::Int)
+            f = x -> x * abs(r)
+            return f
+        end
+        abmult2(1)
+        mi = methodinstance(abmult2, (Int,))
+        @test !hasbox(mi)
+    end
+end
+
 module Callers
 
 f(x) = rand()
