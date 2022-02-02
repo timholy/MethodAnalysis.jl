@@ -198,6 +198,30 @@ end
     end
 end
 
+@testset "hasbox" begin
+    function abmult(r::Int)
+        if r < 0
+            r = -r
+        end
+        f = x -> x * r
+        return f
+    end
+    function abmult2(r::Int)
+        f = x -> x * abs(r)
+        return f
+    end
+    abmult(1)
+    mi = methodinstance(abmult, (Int,))
+    abmult2(1)
+    mi2 = methodinstance(abmult2, (Int,))
+    if isdefined(Base, :code_typed_by_type)
+        @test hasbox(mi)
+        @test !hasbox(mi2)
+    else
+        @test_throws ErrorException("hasbox requires at least Julia 1.6") hasbox(mi)
+    end
+end
+
 module Callers
 
 f(x) = rand()
