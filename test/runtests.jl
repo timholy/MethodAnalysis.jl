@@ -87,6 +87,18 @@ end
     mis = methodinstances(which(convert, (Type{String}, AbstractString)))
     @test length(mis) > 2
     @test mi ∉ mis   # that's covered by a different Method
+
+    f(x) = 1
+    f(1)
+    f(1.0)
+    @test methodinstance(f, (Real,)) === nothing
+    mi = methodinstance(f, (Float64,))
+    @test mi.specTypes == Tuple{typeof(f),Float64}
+    mis = methodinstances(f, (Real,))
+    @test length(mis) == 2
+    @test all(mis) do mi
+        mi.specTypes ∈ (Tuple{typeof(f),Float64}, Tuple{typeof(f),Int})
+    end
 end
 
 @testset "Backedges" begin
