@@ -201,7 +201,7 @@ module Callers
 
 f(x) = rand()
 function g()
-    x = sin(π/2)
+    x = sin(rand())
     y = f(x)
     z = round(Int, x)
     y = f(z)
