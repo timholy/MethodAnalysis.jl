@@ -94,10 +94,11 @@ end
     @test methodinstance(f, (Real,)) === nothing
     mi = methodinstance(f, (Float64,))
     @test mi.specTypes == Tuple{typeof(f),Float64}
-    mis = methodinstances(f, (Real,))
-    @test length(mis) == 2
-    @test all(mis) do mi
-        mi.specTypes ∈ (Tuple{typeof(f),Float64}, Tuple{typeof(f),Int})
+    for mis in (methodinstances(f, (Real,)), methodinstances(Tuple{typeof(f),Real}))
+        @test length(mis) == 2
+        @test all(mis) do mi
+            mi.specTypes ∈ (Tuple{typeof(f),Float64}, Tuple{typeof(f),Int})
+        end
     end
 end
 

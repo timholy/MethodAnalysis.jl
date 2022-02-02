@@ -24,8 +24,8 @@ Split a signature type like `Tuple{typeof(f),ArgTypes...}` back out to `(f, Tupl
 function call_type(tt)
     ft = tt.parameters[1]
     argt = Tuple{tt.parameters[2:end]...}
-    name = Symbol(String(ft.name.name)[2:end])  # strip off leading '#'
-    return (getfield(ft.name.module, name), argt)
+    name = Symbol(String(ft.name.name))
+    return (getfield(ft.name.module, name).instance, argt)
 end
 
 """
