@@ -98,12 +98,12 @@ Let's see all the compiled instances of `Base.setdiff` and their immediate calle
 ```jldoctest; setup=(using MethodAnalysis)
 julia> direct_backedges(setdiff)
 6-element Vector{Any}:
-     MethodInstance for setdiff(::Base.KeySet{Any, Dict{Any, Any}}, ::Base.KeySet{Any, Dict{Any, Any}}) => MethodInstance for REPL.LineEdit.keymap_merge(::Dict{Char, Any}, ::Dict{Any, Any})
-     MethodInstance for setdiff(::Base.KeySet{Any, Dict{Any, Any}}, ::Base.KeySet{Any, Dict{Any, Any}}) => MethodInstance for REPL.LineEdit.keymap_merge(::Dict{Char, Any}, ::Union{Dict{Any, Any}, Dict{Char, Any}})
-   MethodInstance for setdiff(::Base.KeySet{Char, Dict{Char, Any}}, ::Base.KeySet{Any, Dict{Any, Any}}) => MethodInstance for REPL.LineEdit.keymap_merge(::Dict{Char, Any}, ::Union{Dict{Any, Any}, Dict{Char, Any}})
-   MethodInstance for setdiff(::Base.KeySet{Any, Dict{Any, Any}}, ::Base.KeySet{Char, Dict{Char, Any}}) => MethodInstance for REPL.LineEdit.keymap_merge(::Dict{Char, Any}, ::Union{Dict{Any, Any}, Dict{Char, Any}})
- MethodInstance for setdiff(::Base.KeySet{Char, Dict{Char, Any}}, ::Base.KeySet{Char, Dict{Char, Any}}) => MethodInstance for REPL.LineEdit.keymap_merge(::Dict{Char, Any}, ::Union{Dict{Any, Any}, Dict{Char, Any}})
-                                   MethodInstance for setdiff(::Vector{Base.UUID}, ::Vector{Base.UUID}) => MethodInstance for Pkg.Operations.deps_graph(::Pkg.Types.Context, ::Dict{Base.UUID, String}, ::Dict{Base.UUID, Pkg.Types.VersionSpec}, ::Dict{Base.UUID, Pkg.Resolve.Fixed})
+     MethodInstance for setdiff(::Base.KeySet{Any, Dict{Any, Any}}, ::Base.KeySet{Any, Dict{Any, Any}}) => MethodInstance for keymap_merge(::Dict{Char, Any}, ::Dict{Any, Any})
+     MethodInstance for setdiff(::Base.KeySet{Any, Dict{Any, Any}}, ::Base.KeySet{Any, Dict{Any, Any}}) => MethodInstance for keymap_merge(::Dict{Char, Any}, ::Union{Dict{Any, Any}, Dict{Char, Any}})
+   MethodInstance for setdiff(::Base.KeySet{Char, Dict{Char, Any}}, ::Base.KeySet{Any, Dict{Any, Any}}) => MethodInstance for keymap_merge(::Dict{Char, Any}, ::Union{Dict{Any, Any}, Dict{Char, Any}})
+   MethodInstance for setdiff(::Base.KeySet{Any, Dict{Any, Any}}, ::Base.KeySet{Char, Dict{Char, Any}}) => MethodInstance for keymap_merge(::Dict{Char, Any}, ::Union{Dict{Any, Any}, Dict{Char, Any}})
+ MethodInstance for setdiff(::Base.KeySet{Char, Dict{Char, Any}}, ::Base.KeySet{Char, Dict{Char, Any}}) => MethodInstance for keymap_merge(::Dict{Char, Any}, ::Union{Dict{Any, Any}, Dict{Char, Any}})
+                                   MethodInstance for setdiff(::Vector{Base.UUID}, ::Vector{Base.UUID}) => MethodInstance for deps_graph(::Pkg.Types.Context, ::Dict{Base.UUID, String}, ::Dict{Base.UUID, Pkg.Types.VersionSpec}, ::Dict{Base.UUID, Pkg.Resolve.Fixed})
 ```
 
 ### Printing backedges as a tree
@@ -116,36 +116,36 @@ MethodInstance for findfirst(::BitVector)
 
 julia> MethodAnalysis.print_tree(mi)
 MethodInstance for findfirst(::BitVector)
-├─ MethodInstance for Pkg.Resolve.prune_graph!(::Graph)
-│  └─ MethodInstance for Pkg.Resolve.var"#simplify_graph!#111"(::Bool, ::typeof(simplify_graph!), ::Graph, ::Set{Int64})
-│     └─ MethodInstance for Pkg.Resolve.simplify_graph!(::Graph, ::Set{Int64})
-│        └─ MethodInstance for Pkg.Resolve.simplify_graph!(::Graph)
-│           ├─ MethodInstance for Pkg.Resolve.trigger_failure!(::Graph, ::Vector{Int64}, ::Tuple{Int64, Int64})
+├─ MethodInstance for prune_graph!(::Graph)
+│  └─ MethodInstance for var"#simplify_graph!#111"(::Bool, ::typeof(simplify_graph!), ::Graph, ::Set{Int64})
+│     └─ MethodInstance for simplify_graph!(::Graph, ::Set{Int64})
+│        └─ MethodInstance for simplify_graph!(::Graph)
+│           ├─ MethodInstance for trigger_failure!(::Graph, ::Vector{Int64}, ::Tuple{Int64, Int64})
 │           │  ⋮
 │           │
-│           └─ MethodInstance for Pkg.Operations.resolve_versions!(::Context, ::Vector{PackageSpec})
+│           └─ MethodInstance for resolve_versions!(::Context, ::Vector{PackageSpec})
 │              ⋮
 │
-└─ MethodInstance for Pkg.Resolve.update_solution!(::SolutionTrace, ::Graph)
-   └─ MethodInstance for Pkg.Resolve.converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
-      ├─ MethodInstance for Pkg.Resolve.converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
-      │  ├─ MethodInstance for Pkg.Resolve.converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
-      │  │  ├─ MethodInstance for Pkg.Resolve.converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
+└─ MethodInstance for update_solution!(::SolutionTrace, ::Graph)
+   └─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
+      ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
+      │  ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
+      │  │  ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
       │  │  │  ⋮
       │  │  │
-      │  │  └─ MethodInstance for Pkg.Resolve.maxsum(::Graph)
+      │  │  └─ MethodInstance for maxsum(::Graph)
       │  │     ⋮
       │  │
-      │  └─ MethodInstance for Pkg.Resolve.maxsum(::Graph)
-      │     └─ MethodInstance for Pkg.Resolve.resolve(::Graph)
+      │  └─ MethodInstance for maxsum(::Graph)
+      │     └─ MethodInstance for resolve(::Graph)
       │        ⋮
       │
-      └─ MethodInstance for Pkg.Resolve.maxsum(::Graph)
-         └─ MethodInstance for Pkg.Resolve.resolve(::Graph)
-            ├─ MethodInstance for Pkg.Resolve.trigger_failure!(::Graph, ::Vector{Int64}, ::Tuple{Int64, Int64})
+      └─ MethodInstance for maxsum(::Graph)
+         └─ MethodInstance for resolve(::Graph)
+            ├─ MethodInstance for trigger_failure!(::Graph, ::Vector{Int64}, ::Tuple{Int64, Int64})
             │  ⋮
             │
-            └─ MethodInstance for Pkg.Operations.resolve_versions!(::Context, ::Vector{PackageSpec})
+            └─ MethodInstance for resolve_versions!(::Context, ::Vector{PackageSpec})
                ⋮
 ```
 

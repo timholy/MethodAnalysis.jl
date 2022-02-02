@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: julia-actions/setup-julia@v1
         with:
-          version: nightly
+          version: '1.6'
           show-versioninfo: true
       - uses: actions/checkout@v2
       - uses: julia-actions/julia-buildpkg@latest
