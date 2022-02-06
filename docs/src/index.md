@@ -28,6 +28,8 @@ julia> Base.FastMath ∈ mods
 true
 ```
 
+You can do this more easily with the convenience utility [`child_modules`](@ref).
+
 ### Collecting all Methods in Core.Compiler
 
 `visit` also descends into functions, methods, and MethodInstances:
@@ -187,8 +189,11 @@ with_all_backedges
 ```@docs
 methodinstance
 methodinstances
+methodinstances_owned_by
+child_modules
 call_type
 findcallers
+hasbox
 worlds
 ```
 
