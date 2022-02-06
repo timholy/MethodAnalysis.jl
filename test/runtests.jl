@@ -74,7 +74,10 @@ end
 
 @testset "child_modules" begin
     m = Module()
-    Base.eval(m, :(module Inner end))
+    Base.eval(m, :(
+        module Inner
+        export Base
+        end))
     mmods = child_modules(m)
     @test m ∈ mmods
     @test m.Inner ∈ mmods

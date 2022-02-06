@@ -197,13 +197,15 @@ end
 
 Return a list that includes `mod` and all sub-modules of `mod`.
 By default, modules loaded from other sources (e.g., packages or those
-defined by Julia itself) are excluded unless you set `external=true`.
+defined by Julia itself) are excluded, even if exported (or `@reexport`ed,
+see https://github.com/simonster/Reexport.jl), unless you set `external=true`.
 
 # Examples
 
 ```jldoctest
 julia> module Outer
        module Inner
+       export Base
        end
        end
 Main.Outer
@@ -216,6 +218,30 @@ julia> child_modules(Outer)
 julia> child_modules(Outer.Inner)
 1-element Vector{Module}:
  Main.Outer.Inner
+```
+
+# Extended help
+
+In the example above, because of the `export Base`, the following `visit`-based implementation would
+also collect `Base` and all of its sub-modules:
+
+```jldoctest
+julia> mods = Module[]
+Module[]
+
+julia> visit(Outer) do item
+           if item isa Module
+               push!(mods, item)
+               return true
+           end
+           return false
+       end
+
+julia> Base ∈ mods
+true
+
+julia> length(mods) > 20
+true
 ```
 """
 function child_modules(mod::Module; external::Bool=false)
