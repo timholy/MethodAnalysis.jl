@@ -8,6 +8,7 @@ using Base.Meta: isexpr
 
 export visit, call_type, methodinstance, methodinstances, worlds  # findcallers is exported from its own file
 export visit_backedges, all_backedges, with_all_backedges, terminal_backedges, direct_backedges
+export child_modules, methodinstances_owned_by
 export hasbox
 
 include("visit.jl")
@@ -150,7 +151,8 @@ julia> methodinstances(m)
 ```
 
 Note the method `m` was broader than the signature we queried with, and the returned `MethodInstance`s reflect that breadth.
-See [`methodinstances`](@ref) for a more restrictive subset.
+See [`methodinstances`](@ref) for a more restrictive subset, and [`methodinstances_owned_by`](@ref) for collecting
+MethodInstances owned by specific modules.
 """
 function methodinstances(top=())
     if isa(top, Module) || isa(top, Function) || isa(top, Type) || isa(top, Method) || isa(top, Base.MethodList)
@@ -188,6 +190,96 @@ methodinstances(@nospecialize(f), @nospecialize(types)) =
 function methodinstances(@nospecialize(types::Type))
     f, argt = call_type(types)
     return methodinstances(f, types)
+end
+
+"""
+    mods = child_modules(mod::Module; external::Bool=false)
+
+Return a list that includes `mod` and all sub-modules of `mod`.
+By default, modules loaded from other sources (e.g., packages or those
+defined by Julia itself) are excluded, even if exported (or `@reexport`ed,
+see https://github.com/simonster/Reexport.jl), unless you set `external=true`.
+
+# Examples
+
+```jldoctest
+julia> module Outer
+       module Inner
+       export Base
+       end
+       end
+Main.Outer
+
+julia> child_modules(Outer)
+2-element Vector{Module}:
+ Main.Outer
+ Main.Outer.Inner
+
+julia> child_modules(Outer.Inner)
+1-element Vector{Module}:
+ Main.Outer.Inner
+```
+
+# Extended help
+
+In the example above, because of the `export Base`, the following `visit`-based implementation would
+also collect `Base` and all of its sub-modules:
+
+```jldoctest
+julia> mods = Module[]
+Module[]
+
+julia> visit(Outer) do item
+           if item isa Module
+               push!(mods, item)
+               return true
+           end
+           return false
+       end
+
+julia> Base ∈ mods
+true
+
+julia> length(mods) > 20
+true
+```
+"""
+function child_modules(mod::Module; external::Bool=false)
+    function rootmodule(m::Module)
+        m == mod && return m   # anything under `mod` has a root of `mod`
+        pm = parentmodule(m)
+        m == pm && return m
+        return rootmodule(pm)
+    end
+    mods = Module[]
+    visit(mod) do item
+        if item isa Module && (external || rootmodule(item) == mod)
+            push!(mods, item)
+            return true
+        end
+        return false  # don't recurse into Methods, MethodTables, MethodInstances, etc.
+    end
+    return mods
+end
+
+"""
+    mis = methodinstances_owned_by(mod::Module; include_child_modules::Bool=true, kwargs...)
+
+Return a list of `MethodInstance`s that are owned by `mod`. If `include_child_modules` is `true`,
+this includes sub-modules of `mod`, in which case `kwargs` are passed to [`child_modules`](@ref).
+
+The primary difference between `methodinstances(mod)` and `methodinstances_owned_by(mod)` is that
+the latter excludes `MethodInstances` that belong to re-exported dependent packages.
+"""
+function methodinstances_owned_by(mod::Module; include_child_modules::Bool=true, kwargs...)
+    mods = include_child_modules ? child_modules(mod; kwargs...) : [mod]
+    # get all MethodInstances owned by one of the modules in `mods`
+    # these are the only MethodInstances that can be precompiled in current versions of Julia
+    return filter(methodinstances(mod)) do mi
+        m = mi.def
+        m isa Method && return m.module ∈ mods
+        return m ∈ mods
+    end
 end
 
 if isdefined(Base, :code_typed_by_type)

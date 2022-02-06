@@ -1,6 +1,7 @@
 using MethodAnalysis
 using Test
 using Logging
+using ImageCore
 using Pkg
 
 module Outer
@@ -71,6 +72,30 @@ end
     end
 end
 
+@testset "child_modules" begin
+    m = Module()
+    Base.eval(m, :(
+        module Inner
+        export Base
+        end))
+    mmods = child_modules(m)
+    @test m ∈ mmods
+    @test m.Inner ∈ mmods
+    @test length(mmods) == 2
+    imods = child_modules(m.Inner)
+    @test m.Inner ∈ mmods
+    @test length(imods) == 1
+
+    # Base is interesting because it's not its own parent
+    bmods = child_modules(Base)
+    @test Base ∈ bmods
+    @test Base.Sort ∈ bmods
+    @test Main ∉ bmods
+    smods = child_modules(Base.Sort)
+    @test Base ∉ smods
+    @test Base.Sort ∈ smods
+end
+
 @testset "methodinstance(s)" begin
     sum(1:3)
     mi = methodinstance(sum, (UnitRange{Int},))
@@ -100,6 +125,32 @@ end
             mi.specTypes ∈ (Tuple{typeof(f),Float64}, Tuple{typeof(f),Int})
         end
     end
+end
+
+@testset "AbstractTrees integration" begin
+    mi = methodinstance(findfirst, (BitVector,))
+    io = IOBuffer()
+    MethodAnalysis.AbstractTrees.print_tree(io, mi)
+    str = String(take!(io))
+    @test occursin("├─", str)
+end
+
+@testset "methodinstances_owned_by" begin
+    function owned_by(mi::Core.MethodInstance, mod::Module)
+        m = mi.def
+        m isa Method && return m.module == mod
+        return m == mod
+    end
+    # ImageCore is a package that does a lot of `@reexport`ing
+    mis = methodinstances(ImageCore)
+    @test  any(mi -> owned_by(mi, ImageCore), mis)
+    @test  any(mi -> owned_by(mi, ImageCore.ColorTypes), mis)  # ColorTypes is a dependency of ImageCore
+    mis = methodinstances_owned_by(ImageCore)
+    @test  any(mi -> owned_by(mi, ImageCore), mis)
+    @test !any(mi -> owned_by(mi, ImageCore.ColorTypes), mis)
+    mis = methodinstances_owned_by(ImageCore; external=true)
+    @test  any(mi -> owned_by(mi, ImageCore), mis)
+    @test  any(mi -> owned_by(mi, ImageCore.ColorTypes), mis)
 end
 
 @testset "Backedges" begin
