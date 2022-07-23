@@ -7,7 +7,7 @@ version = "0.4.6"
 AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 
 [compat]
-AbstractTrees = "0.3, 0.4"
+AbstractTrees = "0.3, 0.4.2"
 julia = "1"
 
 [extras]
