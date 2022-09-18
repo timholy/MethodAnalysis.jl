@@ -68,6 +68,40 @@ function visit(@nospecialize(operation); print::Bool=false)
     return nothing
 end
 
+struct ModuleWrapper
+    operation
+    parent::Union{Module,Nothing}
+end
+(w::ModuleWrapper)(@nospecialize(x)) = w.operation(x, w.parent)
+
+rewrap_operation(@nospecialize(operation), ::Module) = operation
+rewrap_operation(w::ModuleWrapper, mod::Module) = ModuleWrapper(w.operation, mod)
+
+"""
+    visit_withmodule(operation; print::Bool=false)
+    visit_withmodule(operation, obj, mod; print::Bool=false)
+
+Similar to [`visit`](@ref), except that `operation` should have signature `operation(x, mod)` where `mod` is either:
+
+- the module in which `x` was found, or
+- `nothing` if `x` is itself a top-level module.
+
+If you're visiting underneath a specific object `obj`, you must supply `mod`, the module (or `nothing`) in which
+`obj` would be found.
+"""
+function visit_withmodule(@nospecialize(operation); print::Bool=false)
+    visited = IdSet{Any}()
+    wrapped = ModuleWrapper(operation, nothing)
+    for mod in Base.loaded_modules_array()
+        _visit(wrapped, mod, visited, print)
+    end
+    return nothing
+end
+
+function visit_withmodule(@nospecialize(operation), @nospecialize(obj), mod::Union{Module,Nothing}; print::Bool=false)
+    return _visit(ModuleWrapper(operation, mod), obj, IdSet{Any}(), print)
+end
+
 # These are non-keyword functions due to https://github.com/JuliaLang/julia/issues/34516
 
 function _visit(@nospecialize(operation), mod::Module, visited::IdSet{Any}, print::Bool)
@@ -75,10 +109,11 @@ function _visit(@nospecialize(operation), mod::Module, visited::IdSet{Any}, prin
     push!(visited, mod)
     print && println("Module ", mod)
     if operation(mod)
+        newop = rewrap_operation(operation, mod)
         for nm in names(mod; all=true)
             if isdefined(mod, nm)
                 obj = getfield(mod, nm)
-                _visit(operation, obj, visited, print)
+                _visit(newop, obj, visited, print)
             end
         end
     end
