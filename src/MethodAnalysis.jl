@@ -6,7 +6,8 @@ using Base: Callable, IdSet
 using Core: MethodInstance, CodeInfo, SimpleVector, MethodTable
 using Base.Meta: isexpr
 
-export visit, call_type, methodinstance, methodinstances, worlds  # findcallers is exported from its own file
+export visit, visit_withmodule
+export call_type, methodinstance, methodinstances, worlds  # findcallers is exported from its own file
 export visit_backedges, all_backedges, with_all_backedges, terminal_backedges, direct_backedges
 export child_modules, methodinstances_owned_by
 export hasbox

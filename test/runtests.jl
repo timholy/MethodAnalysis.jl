@@ -21,6 +21,14 @@ module Outer
     f2(x, y::Number) = x + y
 end
 
+module One
+    f(x) = 1
+end
+module Two
+    using ..One
+    One.f(x::Int) = x + 2
+end
+
 
 @testset "visit" begin
     @test Outer.Inner.g("hi") == 0
@@ -70,6 +78,37 @@ end
         isa(m, Method) && @test Base.unwrap_unionall(m.sig).parameters[1].parameters[1] === IndexStyle
         return m === IndexStyle
     end
+end
+
+@testset "visit_withmodule" begin
+    found = Dict{Module,Set{Method}}()
+    visit_withmodule(Main, nothing) do item, mod
+        if item === Main
+            @test mod === nothing
+            return true
+        end
+        if mod == Main && item isa Module
+            return item ∈ (Outer, Outer.Inner, Outer.OtherInner, One, Two)
+        end
+        item isa Method || return true
+        push!(get!(Set{Any}, found, mod), item)
+        return false
+    end
+    s = found[One]
+    @test methods(One.f) ⊆ s
+    @test any(m -> m.module == One, s)
+    @test any(m -> m.module == Two, s)
+    @test methods(Outer.f2) ⊆ found[Outer]
+    @test methods(Outer.Inner.h) ⊆ found[Outer.Inner]
+
+    found = Dict{Union{Module,Nothing}, Set{Module}}()
+    visit_withmodule() do item, mod
+        item isa Module || return false
+        push!(get!(Set{Module}, found, mod), item)
+        return true
+    end
+    @test Main ∈ union(found[nothing], found[Core])
+    @test One ∈ found[Main]
 end
 
 @testset "child_modules" begin
