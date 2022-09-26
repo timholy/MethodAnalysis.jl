@@ -229,8 +229,7 @@ _visit(@nospecialize(operation), @nospecialize(x), visited::IdSet{Any}, print::B
 Visit the backedges of `obj` and apply `operation` to each.
 `operation` may need to be able to handle two call forms, `operation(mi)` and
 `operation(sig=>mi)`, where `mi` is a `MethodInstance` and `sig` is a `Tuple`-type.
-The latter arises from `MethodTable` backedges and can be ignored if `obj` does not
-contain `MethodTable`s.
+The latter arises from either `invoke` calls or `MethodTable` backedges.
 
 `operation(edge)` should return `true` if the backedges of `edge` should in turn be visited,
 `false` otherwise.
@@ -267,15 +266,28 @@ function visit_backedges(@nospecialize(operation), obj, visited::IdSet{MethodIns
     visit(opwrapper, obj)
 end
 
-function _visit_backedges(@nospecialize(operation), mi::MethodInstance, visited)
-    mi ∈ visited && return nothing
-    push!(visited, mi)
-    if operation(mi) && isdefined(mi, :backedges)
-        for edge in mi.backedges
-            _visit_backedges(operation, edge, visited)
+if isdefined(Core.Compiler, :BackedgeIterator)
+    function _visit_backedges(@nospecialize(operation), callee::Union{MethodInstance,Pair{Any,MethodInstance}}, visited)
+        getmi(callee) ∈ visited && return nothing
+        push!(visited, callee)
+        if operation(callee) && isdefined(getmi(callee), :backedges)
+            for be in Core.Compiler.BackedgeIterator(getmi(callee).backedges)
+                _visit_backedges(operation, stdbe(be), visited)
+            end
         end
+        return nothing
     end
-    return nothing
+else
+    function _visit_backedges(@nospecialize(operation), mi::MethodInstance, visited)
+        mi ∈ visited && return nothing
+        push!(visited, mi)
+        if operation(mi) && isdefined(mi, :backedges)
+            for edge in mi.backedges
+                _visit_backedges(operation, edge, visited)
+            end
+        end
+        return nothing
+    end
 end
 
 function _visit_backedges(@nospecialize(operation), misig::Pair{Any,MethodInstance}, visited)

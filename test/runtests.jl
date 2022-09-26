@@ -21,6 +21,10 @@ module Outer
     f2(x, y::Number) = x + y
 
     fkw(x; y=0) = 2x + y
+
+    invk(::Int) = 1
+    invk(::Integer) = 2
+    geninvk(x) = invoke(invk, Tuple{Integer}, x)
 end
 
 module One
@@ -266,6 +270,16 @@ end
     callnocallers(x) = nocallers(x)
     callnocallers(3)
     @test !isempty(direct_backedges(mi))
+
+    if isdefined(Core.Compiler, :BackedgeIterator)
+        @test Outer.geninvk(3) == 2
+        m = which(Outer.invk, (Integer,))
+        bes = direct_backedges(m)
+        be = only(bes)
+        @test be.first.second.specTypes.parameters[2] === Int
+        @test be.first.first === Tuple{typeof(Main.Outer.invk), Integer}
+        @test be.second == methodinstance(Outer.geninvk, (Int,))
+    end
 end
 
 @testset "call_type" begin

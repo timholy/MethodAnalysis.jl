@@ -18,6 +18,19 @@ include("backedges.jl")
 if !hasmethod(==, Tuple{Core.PhiNode,Core.PhiNode})
     Base.:(==)(stmt1::Core.PhiNode, stmt2::Core.PhiNode) = stmt1.edges == stmt2.edges && stmt1.values == stmt2.values
 end
+if isdefined(Core.Compiler, :BackedgeIterator)
+    getmi(mi::MethodInstance) = mi
+    getmi(pr::Pair{Any,MethodInstance}) = pr.second
+    getmi(pr::Core.Compiler.BackedgePair) = pr.caller
+
+    stdbe(::Nothing, caller::MethodInstance) = caller
+    stdbe(@nospecialize(invokesig), caller::MethodInstance) = Pair{Any,MethodInstance}(invokesig, caller)
+    stdbe(pr::Core.Compiler.BackedgePair) = stdbe(pr.sig, pr.caller)
+
+    if !hasmethod(iterate, Tuple{Core.Compiler.BackedgeIterator})
+        Base.iterate(iter::Core.Compiler.BackedgeIterator, state...) = Core.Compiler.iterate(iter, state...)
+    end
+end
 
 """
     call_type(tt)
