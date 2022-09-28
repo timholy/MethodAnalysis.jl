@@ -42,7 +42,7 @@ end
         end
         return true
     end
-    mkw = only(methods(Core.kwfunc(Outer.fkw)))
+    mkw = first(methods(Core.kwfunc(Outer.fkw)))
     @test mkw in meths
 
     @test Outer.Inner.g("hi") == 0
