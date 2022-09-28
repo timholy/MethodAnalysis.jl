@@ -19,6 +19,8 @@ module Outer
 
     f2(x, y::String) = 2x
     f2(x, y::Number) = x + y
+
+    fkw(x; y=0) = 2x + y
 end
 
 module One
@@ -31,6 +33,18 @@ end
 
 
 @testset "visit" begin
+    # Do we pick up kwfuncs?
+    meths = Set{Method}()
+    visit(Outer) do item
+        if item isa Method
+            push!(meths, item)
+            return false
+        end
+        return true
+    end
+    mkw = only(methods(Core.kwfunc(Outer.fkw)))
+    @test mkw in meths
+
     @test Outer.Inner.g("hi") == 0
     @test Outer.f(nothing) == 1
     @test Outer.callh(1)

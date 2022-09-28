@@ -132,6 +132,13 @@ function _visit(@nospecialize(operation), @nospecialize(f::Callable), visited::I
             _visit(operation, m, visited, print)
         end
     end
+    # isdefined(Base, Symbol("f##kw")) is false but isdefined(Base, Symbol("#f##kw")) is true
+    # (the type of the function is defined but the function itself isn't), so to get kwfunc we
+    # need to look for them specially
+    if !isa(f, Function) && isdefined(f, :instance)
+        finst = f.instance
+        isa(finst, Function) && _visit(operation, finst, visited, print)
+    end
     return nothing
 end
 
