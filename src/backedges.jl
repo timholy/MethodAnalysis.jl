@@ -72,16 +72,30 @@ function direct_backedges(f::Union{Method,Callable}; skip::Bool=true)
         elseif isa(item, MethodInstance)
             callee = item::MethodInstance
             if isdefined(callee, :backedges)
-                for caller in callee.backedges
-                    skip && caller ∈ _skip && continue
-                    push!(bes, callee=>caller)
-                end
+                push_unskipped_backedges!(bes, callee, skip, _skip)
             end
             return false
         end
         true
     end
     return bes
+end
+if isdefined(Core.Compiler, :BackedgeIterator)
+    function push_unskipped_backedges!(bes, callee, skip, _skip)
+        for caller in Core.Compiler.BackedgeIterator(callee.backedges)
+            skip && getmi(caller) ∈ _skip && continue
+            push!(bes, stdbe(caller.sig, callee)=>caller.caller)
+        end
+        return bes
+    end
+else
+    function push_unskipped_backedges!(bes, callee, skip, _skip)
+        for caller in callee.backedges
+            skip && caller ∈ _skip && continue
+            push!(bes, callee=>caller)
+        end
+        return bes
+    end
 end
 
 """
