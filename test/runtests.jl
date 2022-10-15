@@ -4,6 +4,13 @@ using Logging
 using ImageCore
 using Pkg
 
+if !isdefined(Base, :only)
+    function only(x)
+        length(x) == 1 || error("must have only one item")
+        return first(x)
+    end
+end
+
 module Outer
     module Inner
         g(::AbstractString) = 0
@@ -46,7 +53,7 @@ end
         end
         return true
     end
-    mkw = first(methods(Core.kwfunc(Outer.fkw)))
+    mkw = only(methods(Core.kwfunc(Outer.fkw), (Any, typeof(Outer.fkw), Vararg{Any})))
     @test mkw in meths
 
     @test Outer.Inner.g("hi") == 0
