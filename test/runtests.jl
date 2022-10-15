@@ -46,7 +46,7 @@ end
         end
         return true
     end
-    mkw = first(methods(Core.kwfunc(Outer.fkw)))
+    mkw = only(methods(Core.kwfunc(Outer.fkw), (Any, typeof(Outer.fkw), Vararg{Any})))
     @test mkw in meths
 
     @test Outer.Inner.g("hi") == 0
