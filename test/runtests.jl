@@ -4,6 +4,13 @@ using Logging
 using ImageCore
 using Pkg
 
+if !isdefined(Base, :only)
+    function only(x)
+        length(x) == 1 || error("must have only one item")
+        return first(x)
+    end
+end
+
 module Outer
     module Inner
         g(::AbstractString) = 0
