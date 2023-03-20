@@ -177,6 +177,8 @@ function _visit(@nospecialize(operation), m::Method, visited::IdSet{Any}, print:
                     end
                 elseif isa(spec, Core.SimpleVector)
                     _visit(operation, spec, visited, print)
+                elseif isa(spec, MethodInstance)
+                    _visit(operation, spec, visited, print)
                 else
                     error("unhandled type ", typeof(spec), ": ", spec)
                 end
