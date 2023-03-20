@@ -216,7 +216,7 @@ see https://github.com/simonster/Reexport.jl), unless you set `external=true`.
 
 # Examples
 
-```jldoctest
+```jldoctest outerinner; setup=:(using MethodAnalysis), filter=r"(Main\\.O|O)"
 julia> module Outer
        module Inner
        export Base
@@ -239,7 +239,7 @@ julia> child_modules(Outer.Inner)
 In the example above, because of the `export Base`, the following `visit`-based implementation would
 also collect `Base` and all of its sub-modules:
 
-```jldoctest
+```jldoctest outerinner; setup=:(using MethodAnalysis)
 julia> mods = Module[]
 Module[]
 

@@ -104,7 +104,7 @@ julia> mis = methodinstances(findfirst)
 
 Let's see all the compiled instances of `Base.setdiff` and their immediate callers:
 
-```jldoctest; setup=(using MethodAnalysis)
+```jldoctest; setup=(using MethodAnalysis), filter=[r"(6|7)", r"Instance for .*"]
 julia> direct_backedges(setdiff)
 6-element Vector{Any}:
      MethodInstance for setdiff(::Base.KeySet{Any, Dict{Any, Any}}, ::Base.KeySet{Any, Dict{Any, Any}}) => MethodInstance for keymap_merge(::Dict{Char, Any}, ::Dict{Any, Any})
@@ -119,7 +119,7 @@ julia> direct_backedges(setdiff)
 
 MethodAnalysis uses [AbstractTrees](https://github.com/JuliaCollections/AbstractTrees.jl) to display the complete set of backedges:
 
-```jldoctest; setup=:(using MethodAnalysis)
+```jldoctest; setup=:(using MethodAnalysis), filter=r"─ MethodInstance for.*\$"
 julia> mi = methodinstance(findfirst, (BitVector,))
 MethodInstance for findfirst(::BitVector)
 
@@ -135,27 +135,30 @@ MethodInstance for findfirst(::BitVector)
 │           └─ MethodInstance for resolve_versions!(::Context, ::Vector{PackageSpec})
 │              ⋮
 │
-└─ MethodInstance for update_solution!(::SolutionTrace, ::Graph)
-   └─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
-      ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
-      │  ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
-      │  │  ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
-      │  │  │  ⋮
-      │  │  │
-      │  │  └─ MethodInstance for maxsum(::Graph)
-      │  │     ⋮
-      │  │
-      │  └─ MethodInstance for maxsum(::Graph)
-      │     └─ MethodInstance for resolve(::Graph)
-      │        ⋮
-      │
-      └─ MethodInstance for maxsum(::Graph)
-         └─ MethodInstance for resolve(::Graph)
-            ├─ MethodInstance for trigger_failure!(::Graph, ::Vector{Int64}, ::Tuple{Int64, Int64})
-            │  ⋮
-            │
-            └─ MethodInstance for resolve_versions!(::Context, ::Vector{PackageSpec})
-               ⋮
+├─ MethodInstance for update_solution!(::SolutionTrace, ::Graph)
+│  └─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
+│     ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
+│     │  ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
+│     │  │  ├─ MethodInstance for converge!(::Graph, ::Messages, ::SolutionTrace, ::NodePerm, ::MaxSumParams)
+│     │  │  │  ⋮
+│     │  │  │
+│     │  │  └─ MethodInstance for maxsum(::Graph)
+│     │  │     ⋮
+│     │  │
+│     │  └─ MethodInstance for maxsum(::Graph)
+│     │     └─ MethodInstance for resolve(::Graph)
+│     │        ⋮
+│     │
+│     └─ MethodInstance for maxsum(::Graph)
+│        └─ MethodInstance for resolve(::Graph)
+│           ├─ MethodInstance for trigger_failure!(::Graph, ::Vector{Int64}, ::Tuple{Int64, Int64})
+│           │  ⋮
+│           │
+│           └─ MethodInstance for resolve_versions!(::Context, ::Vector{PackageSpec})
+│              ⋮
+│
+└─ MethodInstance for selective_eval_fromstart!(::typeof(finish_and_return!), ::Frame, ::BitVector, ::Bool)
+   └─ MethodInstance for selective_eval_fromstart!(::Frame, ::BitVector, ::Bool)
 ```
 
 ### Finding the callers of a method
@@ -180,6 +183,7 @@ There are more options, see the help for `findcallers`.
 ```@docs
 visit
 visit_backedges
+visit_withmodule
 ```
 
 ### backedges
