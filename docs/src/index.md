@@ -30,7 +30,7 @@ true
 
 You can do this more easily with the convenience utility [`child_modules`](@ref).
 
-### Collecting all Methods in Core.Compiler
+### Collecting all Methods of functions defined in Core.Compiler
 
 `visit` also descends into functions, methods, and MethodInstances:
 
@@ -46,6 +46,13 @@ julia> visit(Core.Compiler) do item
 julia> first(methods(Core.Compiler.typeinf_ext)) ∈ meths
 true
 ```
+
+!!! note
+    Methods are found by visiting the function. This has an important consequence: if `PkgB` defines a new method for `PkgA.f`, you won't find that method by visiting `PkgB`: you have to visit `PkgA.f` (which you can find by visiting `PkgA`). This is a consequence of how Julia stores Methods, not a limitation of MethodAnalysis.
+
+    Thus, to find all methods defined in `PkgB`, you have to traverse the entire system (`visit() do ... end`), and check the `meth.module` field of every Method to determine which module created it.
+
+    For methods that accept keyword arguments, Julia creates "hidden" methods for filling in the default values. Prior to Julia 1.9, you could find these by visiting the module that owns the "parent" function. On Julia 1.9 and above, these instead get added as methods of `Core.kwcall`. Consequently, these methods cannot be found by visiting the module that owns the parent function.
 
 ### Getting a MethodInstance for a particular set of types
 
