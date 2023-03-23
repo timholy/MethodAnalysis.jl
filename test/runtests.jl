@@ -45,16 +45,20 @@ end
 
 @testset "visit" begin
     # Do we pick up kwfuncs?
-    meths = Set{Method}()
-    visit(Outer) do item
-        if item isa Method
-            push!(meths, item)
-            return false
+    # This is skipped on Julia versions that use `Core.kwcall`, as the methods are found by traversing Core.
+    # See issue #36
+    if !isdefined(Core, :kwcall)
+        meths = Set{Method}()
+        visit(Outer) do item
+            if item isa Method
+                push!(meths, item)
+                return false
+            end
+            return true
         end
-        return true
+        mkw = only(methods(Core.kwfunc(Outer.fkw), (Any, typeof(Outer.fkw), Vararg{Any})))
+        @test mkw in meths
     end
-    mkw = only(methods(Core.kwfunc(Outer.fkw), (Any, typeof(Outer.fkw), Vararg{Any})))
-    @test mkw in meths
 
     @test Outer.Inner.g("hi") == 0
     @test Outer.f(nothing) == 1

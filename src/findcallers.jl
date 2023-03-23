@@ -125,6 +125,9 @@ function findcallers(f, argmatch::Union{Function,Nothing}, mis::AbstractVector{C
                     callee = nothing
                     if stmt.head === callhead
                         callee = stmt.args[1]
+                        if isglobalref(callee, Core, :kwcall) && length(stmt.args) >= 3
+                            callee = stmt.args[3]
+                        end
                     elseif callhead === :iterate && stmt.head === :call && isglobalref(stmt.args[1], Core, :_apply_iterate)
                         callee = stmt.args[3]
                     end
