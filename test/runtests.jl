@@ -11,6 +11,20 @@ if !isdefined(Base, :only)
     end
 end
 
+# For testing #44 (from Pkg)
+struct LikeVersionBound
+    t::NTuple{3,UInt32}
+    n::Int
+    function LikeVersionBound(tin::NTuple{n,Integer}) where n
+        n <= 3 || throw(ArgumentError("LikeVersionBound: you can only specify major, minor and patch versions"))
+        n == 0 && return new((0,           0,      0), n)
+        n == 1 && return new((tin[1],      0,      0), n)
+        n == 2 && return new((tin[1], tin[2],      0), n)
+        n == 3 && return new((tin[1], tin[2], tin[3]), n)
+        error("invalid $n")
+    end
+end
+
 module Outer
     module Inner
         g(::AbstractString) = 0
@@ -461,6 +475,12 @@ if isdefined(MethodAnalysis, :findcallers)
         append!(mis, methodinstances(Pkg.BinaryPlatforms))
         callers2 = findcallers(OtherModule.h, nothing, mis)
         @test length(callers2) == 1
+
+        # issue #44
+        m = only(methods(LikeVersionBound))
+        mi = Core.Compiler.specialize_method(m, Tuple{Type{LikeVersionBound}, Tuple{Int, Vararg{Int}}}, Core.svec())
+        argmatch(typs) = length(typs) >= 2 && typs[2] === AbstractArray
+        findcallers(convert, argmatch, [mi])
 
         # show
         io = IOBuffer()
