@@ -155,8 +155,8 @@ function findcallers(f, argmatch::Union{Function,Nothing}, mis::AbstractVector{C
                     matches || continue
                     # Collect the arg types
                     argtypes = []
-                    for i = (callhead === :iterate ? 4 : 2):length(stmt.args)
-                        a = stmt.args[i]
+                    for iarg = (callhead === :iterate ? 4 : 2):length(stmt.args)
+                        a = stmt.args[iarg]
                         if isa(a, Core.SSAValue)
                             push!(argtypes, extract(src.ssavaluetypes[a.id], sparams))
                         elseif isa(a, Core.SlotNumber)
@@ -165,7 +165,8 @@ function findcallers(f, argmatch::Union{Function,Nothing}, mis::AbstractVector{C
                             push!(argtypes, Core.Typeof(getfield(a.mod, a.name)))
                         elseif isexpr(a, :static_parameter)
                             a = a::Expr
-                            push!(argtypes, Type{sparams[a.args[1]::Int]})
+                            T = sparams[a.args[1]::Int]
+                            push!(argtypes, Base.isvarargtype(T) ? T : Type{T})
                         else
                             push!(argtypes, extract(a, sparams))
                         end
