@@ -3,7 +3,7 @@ module MethodAnalysis
 using AbstractTrees
 
 using Base: Callable, IdSet
-using Core: MethodInstance, CodeInfo, SimpleVector, MethodTable
+using Core: MethodInstance, CodeInstance, CodeInfo, SimpleVector, MethodTable
 using Base.Meta: isexpr
 
 export visit, visit_withmodule
@@ -66,11 +66,11 @@ end
 # A few fields are deliberately unchecked
 function equal(ci1::Core.CodeInfo, ci2::Core.CodeInfo)
     ret = ci1.code == ci2.code &&
-          ci1.codelocs == ci2.codelocs &&
+          (@static hasfield(Core.CodeInfo, :debuginfo) ? ci1.debuginfo == ci2.debuginfo :
+             ci1.codelocs == ci2.codelocs && ci1.linetable == ci2.linetable) &&
           ci1.ssavaluetypes == ci2.ssavaluetypes &&
           ci1.ssaflags == ci2.ssaflags &&
           ci1.method_for_inference_limit_heuristics == ci2.method_for_inference_limit_heuristics &&
-          ci1.linetable == ci2.linetable &&
           ci1.slotnames == ci2.slotnames &&
           ci1.slotflags == ci2.slotflags
     if VERSION >= v"1.2"

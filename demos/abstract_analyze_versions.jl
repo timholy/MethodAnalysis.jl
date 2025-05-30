@@ -63,7 +63,8 @@ sigs, c1, c2 = split_comparable(sigstable, sigmaster)
 nz1, nz2 = tally0(c1, c2)
 println("$stablever has $nz1 with no backedges, master has $nz2")
 mx1, mx2 = maximum(c1), maximum(c2)
-isexported(sig) = (ft = Base.unwrap_unionall(sig).parameters[1]; isdefined(Main, ft.name.mt.name))
+get_fname(@nospecialize(fT::DataType)) = @static VERSION ≥ v"1.13.0-DEV.647" ? fT.name.singletonname : fT.name.mt.name
+isexported(sig) = (ft = Base.unwrap_unionall(sig).parameters[1]; isdefined(Main, get_fname(ft)))
 colors = [isexported(sig) ? "magenta" : "green" for sig in sigs]
 
 function on_click(event)
