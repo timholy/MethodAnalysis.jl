@@ -3,15 +3,19 @@ export findcallers
 function get_typed_instances!(srcs, @nospecialize(tt), method::Method, world, interp)
     # This is essentially taken from code_typed_by_type
     matches = Base._methods_by_ftype(tt, -1, world)
-    if matches === false
-        error("signature $(item.specTypes) does not correspond to a generic function")
+    if matches === false || matches === nothing
+        error("signature $tt does not correspond to a generic function")
     end
     for match in matches
         match.method == method || continue
-        meth = Base.func_for_method_checked(match.method, tt, match.sparams)
-        (src, ty) = isdefined(Core.Compiler, :NativeInterpreter) ?
+        meth = match.method
+        if isdefined(Base, :func_for_method_checked)
+            meth = Base.func_for_method_checked(meth, tt, match.sparams)
+        end
+        ret = isdefined(Core.Compiler, :NativeInterpreter) ?
             Core.Compiler.typeinf_code(interp, meth, match.spec_types, match.sparams, false) :
             Core.Compiler.typeinf_code(meth, match.spec_types, match.sparams, false, interp)
+        src = isa(ret, Tuple) ? ret[1] : ret::CodeInfo
         push!(srcs, (src, match.sparams))
     end
     return srcs
@@ -22,10 +26,10 @@ defaultinterp(world) = isdefined(Core.Compiler, :NativeInterpreter) ?
                        Core.Compiler.NativeInterpreter(world) :
                        Core.Compiler.Params(world)
 
-function get_typed_instances(mi::MethodInstance; world=typemax(UInt), interp=defaultinterp(world))
+function get_typed_instances(mi::MethodInstance; world=default_world(), interp=defaultinterp(world))
     return get_typed_instances!(Tuple{CodeInfo,Core.SimpleVector}[], mi, world, interp)
 end
-function get_typed_instances(@nospecialize(tt), method::Method; world=typemax(UInt), interp=defaultinterp(world))
+function get_typed_instances(@nospecialize(tt), method::Method; world=default_world(), interp=defaultinterp(world))
     return get_typed_instances!(Tuple{CodeInfo,Core.SimpleVector}[], tt, method, world, interp)
 end
 
@@ -95,8 +99,8 @@ callers3 = findcallers(f, argtyps->length(argtyps) == 1 && argtyps[1] === Vector
     `findcallers` is not guaranteed to find all calls. Calls can be "obfuscated" by many mechanisms,
     including calls from top level, calls where the function is a runtime variable, etc.
 """
-function findcallers(f, argmatch::Union{Function,Nothing}, mis::AbstractVector{Core.MethodInstance};
-                     callhead::Symbol=:call, world=typemax(UInt), interp=defaultinterp(world))
+function findcallers(f, argmatch::Union{Function,Nothing}, mis::AbstractVector{MethodInstance};
+                     callhead::Symbol=:call, world=default_world(), interp=defaultinterp(world))
     callhead === :call || callhead === :invoke || callhead === :iterate || error(":call and :invoke are supported, got ", callhead)
     # Check that f is not a type with specified parameters
     if f isa DataType && !isempty(f.parameters)
@@ -105,7 +109,7 @@ function findcallers(f, argmatch::Union{Function,Nothing}, mis::AbstractVector{C
     # Construct a GlobalRef version of `f`
     ref = GlobalRef(parentmodule(f), nameof(f))
     callers = CallMatch[]
-    srcs = Tuple{CodeInfo,Core.SimpleVector}[]
+    srcs = Tuple{CodeInfo,SimpleVector}[]
     for item in mis
         empty!(srcs)
         try
@@ -139,6 +143,9 @@ function findcallers(f, argmatch::Union{Function,Nothing}, mis::AbstractVector{C
                             @show src i
                             throw(err)
                         end
+                    end
+                    if isa(callee, Core.Const)
+                        callee = callee.val
                     end
                     matches = false
                     if callee === f
@@ -188,6 +195,12 @@ function findcallers(f, argmatch::Union{Function,Nothing}, mis::AbstractVector{C
     return callers
 end
 
+@static if isdefined(Base, :get_world_counter)
+    default_world() = Base.get_world_counter()
+else
+    default_world() = typemax(UInt)
+end
+
 isglobalref(@nospecialize(g), mod::Module, name::Symbol) = isa(g, GlobalRef) && g.mod === mod && g.name === name
 
 extract(a, sparams) = isa(a, Core.Const) ? Core.Typeof(a.val) :
@@ -203,7 +216,12 @@ function eval_ssa(src, sparams, id)
         if stmt.head === :call
             callee = stmt.args[1]
             if isglobalref(callee, Core, :apply_type)
-                return stmt.args[2]
+                ret = stmt.args[2]
+                if isa(ret, Core.SSAValue)
+                    # try one level deeper
+                    ret = eval_ssa(src, sparams, ret.id)
+                end
+                return ret
             elseif isglobalref(callee, Base, :getproperty)
                 modg, objq = stmt.args[2], stmt.args[3]
                 if isa(modg, Core.SSAValue)

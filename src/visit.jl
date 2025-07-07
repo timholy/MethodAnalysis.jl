@@ -127,7 +127,11 @@ function _visit(@nospecialize(operation), @nospecialize(f::Callable), visited::I
     print && println("Callable ", f)
     if operation(f)
         ml = methods(f)
-        _visit(operation, ml.mt, visited, print)
+        @static if hasfield(Base.MethodList, :mt)
+            _visit(operation, ml.mt, visited, print)
+        else
+            _visit(operation, ml.tn, visited, print)
+        end
         for m in ml.ms
             _visit(operation, m, visited, print)
         end
@@ -146,19 +150,30 @@ function _visit(@nospecialize(operation), ml::Base.MethodList, visited::IdSet{An
     ml ∈ visited && return nothing
     push!(visited, ml)
     print && println("MethodList ", ml)
-    _visit(operation, ml.mt, visited, print)
+    @static if hasfield(Base.MethodList, :mt)
+        _visit(operation, ml.mt, visited, print)
+    else
+        _visit(operation, ml.tn, visited, print)
+    end
     for m in ml.ms
         _visit(operation, m, visited, print)
     end
     return nothing
 end
 
-
 function _visit(@nospecialize(operation), mt::MethodTable, visited::IdSet{Any}, print::Bool)
     mt ∈ visited && return nothing
     push!(visited, mt)
     print && println("MethodTable ", mt)
     operation(mt)
+    return nothing
+end
+
+function _visit(@nospecialize(operation), tn::Core.TypeName, visited::IdSet{Any}, print::Bool)
+    tn ∈ visited && return nothing
+    push!(visited, tn)
+    print && println("TypeName ", tn)
+    operation(tn)
     return nothing
 end
 
@@ -285,6 +300,7 @@ else
         push!(visited, mi)
         if operation(mi) && isdefined(mi, :backedges)
             for edge in mi.backedges
+                isa(edge, CodeInstance) && (edge = Core.Compiler.get_ci_mi(edge))
                 _visit_backedges(operation, edge, visited)
             end
         end

@@ -69,6 +69,19 @@ function direct_backedges(f::Union{Method,Callable}; skip::Bool=true)
                 end
             end
             return false
+        elseif isa(item, Core.TypeName)
+            tn = item::Core.TypeName
+            if isdefined(tn, :backedges)
+                # `tn.backedges` is typed as `Core.MethodCache`, but is actually
+                # a `Vector{Any}`; the pointer shenanigans mimic a reinterpret.
+                sigmis = unsafe_pointer_to_objref(pointer_from_objref(tn.backedges))::Vector{Any}
+                for i = 1:2:length(sigmis)
+                    sig, edge = sigmis[i], sigmis[i+1]::CodeInstance
+                    mi = Core.Compiler.get_ci_mi(edge)
+                    push!(bes, Pair{Any,MethodInstance}(sig, mi))
+                    push!(_skip, mi)
+                end
+            end
         elseif isa(item, MethodInstance)
             callee = item::MethodInstance
             if isdefined(callee, :backedges)
@@ -91,6 +104,7 @@ if isdefined(Core.Compiler, :BackedgeIterator)
 else
     function push_unskipped_backedges!(bes, callee, skip, _skip)
         for caller in callee.backedges
+            isa(caller, CodeInstance) && (caller = Core.Compiler.get_ci_mi(caller))
             skip && caller ∈ _skip && continue
             push!(bes, callee=>caller)
         end
@@ -107,7 +121,10 @@ meaning it returns an empty list even when `mi.backedges` is not defined.
 function direct_backedges(mi::MethodInstance)
     out = MethodInstance[]
     if isdefined(mi, :backedges)
-        append!(out, mi.backedges)
+        for edge in mi.backedges
+            isa(edge, CodeInstance) && (edge = Core.Compiler.get_ci_mi(edge))
+            push!(out, edge)
+        end
     end
     return out
 end
