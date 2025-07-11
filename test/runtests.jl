@@ -56,6 +56,11 @@ module Two
     One.f(x::Int) = x + 2
 end
 
+module CallableObjects
+    struct Foo end
+    (::Foo)() = 1
+    Foo()()
+end
 
 @testset "visit" begin
     # Do we pick up kwfuncs?
@@ -121,6 +126,15 @@ end
         isa(m, Method) && @test Base.unwrap_unionall(m.sig).parameters[1].parameters[1] === IndexStyle
         return m === IndexStyle
     end
+
+    # See issue #50
+    foo = CallableObjects.Foo()
+    empty!(mis)
+    visit(foo) do x
+        isa(x, Core.MethodInstance) && push!(mis, x)
+        true
+    end
+    @test only(mis) == only(methods(foo)).specializations
 end
 
 @testset "visit_withmodule" begin
