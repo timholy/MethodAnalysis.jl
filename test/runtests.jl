@@ -187,6 +187,7 @@ end
     @test mi ∈ mis
     @test length(mis) > 1
 
+    n = 5; str = LazyString("n is ", n); convert(String, str)  # to ensure there are enough instances of `convert, (Type{String}, AbstractString)`
     mi = methodinstance(convert, (Type{String}, String))
     mis = methodinstances(methods(convert, (Type{String}, Any)))
     @test length(mis) > 10  # in fact, there are many more
@@ -276,17 +277,19 @@ end
     bes = direct_backedges(f)
     @test length(bes) == 1
     pr = bes[1]
-    @test pr.first == Tuple{typeof(f),Any}
+    @test pr.first === Tuple{typeof(f),Any} || pr.first === methodinstance(f, (Integer,))
     @test pr.second == methodinstance(applyf, (Vector{Any},))
 
-    bes = direct_backedges(f; skip=false)
-    @test length(bes) == 2
-    pr = bes[1]
-    @test pr.first == Tuple{typeof(f),Any}
-    @test pr.second == methodinstance(applyf, (Vector{Any},))
-    pr = bes[2]
-    @test pr.first == methodinstance(f, (Integer,))
-    @test pr.second == methodinstance(applyf, (Vector{Any},))
+    if Base.VERSION < v"1.12-DEV"
+        bes = direct_backedges(f; skip=false)
+        @test length(bes) == 2
+        pr = bes[1]
+        @test pr.first == Tuple{typeof(f), Any}
+        @test pr.second == methodinstance(applyf, (Vector{Any},))
+        pr = bes[2]
+        @test pr.first == methodinstance(f, (Integer,))
+        @test pr.second == methodinstance(applyf, (Vector{Any},))
+    end
 
     nocallers(x) = x
     nocallers(3)
