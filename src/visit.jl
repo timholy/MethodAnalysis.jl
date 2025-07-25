@@ -238,7 +238,20 @@ if isdefined(Core, :CodeInstance)
     end
 end
 
-_visit(@nospecialize(operation), @nospecialize(x), visited::IdSet{Any}, print::Bool) = nothing
+function _visit(@nospecialize(operation), @nospecialize(x), visited::IdSet{Any}, print::Bool)
+    x ∈ visited && return nothing
+    x === Vararg && return nothing
+    push!(visited, x)
+    print && (show(x); println())
+    if operation(x)
+        ml = methods(x)
+        _visit(operation, ml.mt, visited, print)
+        for m in ml.ms
+            _visit(operation, m, visited, print)
+        end
+    end
+    return nothing
+end
 
 """
     visit_backedges(operation, obj)
