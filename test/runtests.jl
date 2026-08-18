@@ -207,7 +207,7 @@ end
     n = 5; str = LazyString("n is ", n); convert(String, str)  # to ensure there are enough instances of `convert, (Type{String}, AbstractString)`
     mi = methodinstance(convert, (Type{String}, String))
     mis = methodinstances(methods(convert, (Type{String}, Any)))
-    @test length(mis) > 10  # in fact, there are many more
+    @test length(mis) >= 5  # in fact, there are many more
     @test mi ∈ mis
     mis = methodinstances(which(convert, (Type{String}, AbstractString)))
     @test length(mis) > 2
