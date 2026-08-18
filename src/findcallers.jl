@@ -42,7 +42,9 @@ A structure to summarize a "matching" caller/callee pair. The fields are:
 - `src`: its corresponding `CodeInfo`
 - `sparams`: the type parameters for the caller, given `mi`'s signature (alternatively use `mi.sparam_vals`)
 - `line`: the statement number (in SSAValue sense) on which the call occurs
-- `argtypes`: the caller's inferred types passed as arguments to the callee
+- `argtypes`: the caller's inferred types passed as arguments to the callee. An argument
+  that is itself a type is reported as `Type{X}`, so predicates can be written the same
+  way on every Julia version.
 """
 struct CallMatch
     mi::MethodInstance
@@ -169,7 +171,7 @@ function findcallers(f, argmatch::Union{Function,Nothing}, mis::AbstractVector{M
                         elseif isa(a, Core.SlotNumber)
                             push!(argtypes, extract(src.slottypes[a.id], sparams))
                         elseif isa(a, GlobalRef)
-                            push!(argtypes, Core.Typeof(getfield(a.mod, a.name)))
+                            push!(argtypes, widen_typeegal(Core.Typeof(getfield(a.mod, a.name))))
                         elseif isexpr(a, :static_parameter)
                             a = a::Expr
                             T = sparams[a.args[1]::Int]
@@ -203,11 +205,14 @@ end
 
 isglobalref(@nospecialize(g), mod::Module, name::Symbol) = isa(g, GlobalRef) && g.mod === mod && g.name === name
 
-extract(a, sparams) = isa(a, Core.Const) ? Core.Typeof(a.val) :
-                      isa(a, Core.PartialStruct) ? (a.typ <: Tuple{Any} ? a.typ.parameters[1] : a.typ) :
-                      isa(a,Type) ? a :
-                      isexpr(a, :static_parameter) ? sparams[(a::Expr).args[1]] :
-                      Core.Typeof(a)
+function extract(a, sparams)
+    T = isa(a, Core.Const) ? Core.Typeof(a.val) :
+        isa(a, Core.PartialStruct) ? (a.typ <: Tuple{Any} ? a.typ.parameters[1] : a.typ) :
+        isa(a,Type) ? a :
+        isexpr(a, :static_parameter) ? sparams[(a::Expr).args[1]] :
+        Core.Typeof(a)
+    return widen_typeegal(T)
+end
 
 # This is deliberately simple to prevent performance from tanking
 function eval_ssa(src, sparams, id)

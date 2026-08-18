@@ -69,6 +69,43 @@ the signature named there. A caller may appear more than once, once per distinct
 """
 backedge_pairs
 
+# Julia 1.14 splits the old `Type{X}` into the equality kind `Type{X}` and the egality
+# kind `Core.TypeEgal{X}`, whose sole instance is `X` itself. `Core.Typeof` and inference
+# pick between them with `has_free_typevars(X) ? Type{X} : Core.TypeEgal{X}`, so both
+# reach user-visible types. Only `Tuple` parameters are rewritten, which covers
+# signatures and argument lists.
+@static if isdefined(Core, :TypeEgal)
+    # Report inferred argument types as `Type{X}`, the spelling source code writes.
+    # `Core.TypeEgal{X} <: Type{X}`, so this loses nothing a caller can act on.
+    widen_typeegal(@nospecialize(T)) =
+        isa(T, Core.TypeEgal) ? Type{Base.type_parameter(T)} : maptuple(widen_typeegal, T)
+
+    # The inverse, for interpreting a query: a `Type{X}` written in a signature names the
+    # specialization on `Core.TypeEgal{X}` whenever `X` has no free type variables.
+    function as_typeegal(@nospecialize(T))
+        if Base.isTypeEq(T)
+            X = Base.type_parameter(T)
+            Base.has_free_typevars(X) || return Core.TypeEgal{X}
+        end
+        return maptuple(as_typeegal, T)
+    end
+
+    function maptuple(f, @nospecialize(T))
+        (isa(T, DataType) && T <: Tuple) || return T
+        changed = false
+        params = Any[]
+        for p in T.parameters
+            q = isa(p, Type) ? f(p) : p
+            changed |= q !== p
+            push!(params, q)
+        end
+        return changed ? Tuple{params...} : T
+    end
+else
+    widen_typeegal(@nospecialize(T)) = T
+    as_typeegal(@nospecialize(T)) = T
+end
+
 """
     call_type(tt)
 
@@ -153,6 +190,18 @@ function _methodinstance(@nospecialize(f), @nospecialize(types), multi::Bool)
         tt = Tuple{typeof(f), types...}
         return _methodinstance(f, tt, multi)
     end
+    kept = collect_methodinstances(f, types, multi)
+    if !multi && isempty(kept)
+        tt = as_typeegal(types)
+        tt === types || (kept = collect_methodinstances(f, tt, multi))
+    end
+    multi && return kept
+    length(kept) == 1 && return kept[1]
+    length(kept) == 0 && return nothing
+    error(length(kept), " MethodInstances matched the specified types")
+end
+
+function collect_methodinstances(@nospecialize(f), @nospecialize(types), multi::Bool)
     kept = MethodInstance[]
     visit(f) do mi
         if isa(mi, MethodInstance)
@@ -163,10 +212,7 @@ function _methodinstance(@nospecialize(f), @nospecialize(types), multi::Bool)
         end
         true
     end
-    multi && return kept
-    length(kept) == 1 && return kept[1]
-    length(kept) == 0 && return nothing
-    error(length(kept), " MethodInstances matched the specified types")
+    return kept
 end
 
 """
