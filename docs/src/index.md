@@ -161,6 +161,44 @@ MethodInstance for findfirst(::BitVector)
    └─ MethodInstance for selective_eval_fromstart!(::Frame, ::BitVector, ::Bool)
 ```
 
+### Following calls forward
+
+`direct_calls` reports what a `MethodInstance` calls, the opposite direction from
+`direct_backedges`. It includes callees later removed by optimization:
+
+```julia
+julia> module Demo
+           inner(x) = 2x
+           outer(x) = inner(x) + 1
+       end
+Main.Demo
+
+julia> Demo.outer(3)
+7
+
+julia> direct_calls(methodinstance(Demo.outer, (Int,)))
+2-element Vector{CallEdge}:
+ CallEdge(direct, MethodInstance for Main.Demo.inner(::Int64))
+ CallEdge(direct, MethodInstance for +(::Int64, ::Int64))
+```
+
+`callgraph` follows edges transitively. Use `follow` to stop traversal at selected
+callees:
+
+```julia
+julia> inmodule(t) = (m = t isa Method ? t : t.def; m isa Method && m.module === MyPkg);
+
+julia> graph = callgraph(MyPkg; follow=inmodule);
+```
+
+To omit external callees while retaining package methods reached through functions
+such as `map`, use `keep`. The graph connects retained methods across omitted callees
+with `:indirect` edges:
+
+```julia
+julia> graph = callgraph(MyPkg; keep=inmodule);
+```
+
 ### Finding the callers of a method
 
 To find already-compiled callers of `sum(::Vector{Int})`
@@ -195,12 +233,22 @@ terminal_backedges
 with_all_backedges
 ```
 
+### forward call edges
+
+```@docs
+direct_calls
+visit_calls
+all_calls
+callgraph
+```
+
 ### utilities
 
 ```@docs
 methodinstance
 methodinstances
 methodinstances_owned_by
+codeinstances
 child_modules
 call_type
 findcallers
@@ -212,4 +260,6 @@ worlds
 
 ```@docs
 MethodAnalysis.CallMatch
+CallEdge
+MethodAnalysis.CallTarget
 ```

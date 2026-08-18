@@ -324,6 +324,8 @@ if isdefined(Core, :MethodMatch)
     include("findcallers.jl")
 end
 
+include("forwardedges.jl")
+
 # AbstractTrees interface
 AbstractTrees.children(mi::MethodInstance) = isdefined(mi, :backedges) ? mi.backedges : []
 

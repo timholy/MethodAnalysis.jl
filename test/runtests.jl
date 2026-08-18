@@ -56,6 +56,23 @@ module Two
     One.f(x::Int) = x + 2
 end
 
+module Forward
+    struct A end
+    struct B end
+    f(::A) = 1
+    f(::B) = 2
+    dispatchf(v::Vector{Any}) = f(v[1])
+
+    viamap(v::Vector{A}) = map(f, v)
+    bothways(v::Vector{A}) = f(v[1]) + sum(map(f, v))
+
+    inner(x) = 2x
+    outer(x) = inner(x) + 1
+
+    g(::Int) = 1
+    nomatch(x::String) = g(x)
+end
+
 
 @testset "visit" begin
     # Do we pick up kwfuncs?
@@ -307,6 +324,100 @@ end
         @test be.first.second.specTypes.parameters[2] === Int
         @test be.first.first === Tuple{typeof(Main.Outer.invk), Integer}
         @test be.second == methodinstance(Outer.geninvk, (Int,))
+    end
+end
+
+if hasfield(Core.CodeInstance, :edges)
+    @testset "Forward call edges" begin
+        Outer.callcallh(1)
+        @test Outer.geninvk(3) == 2
+        Forward.dispatchf(Any[Forward.A()])
+        Forward.outer(3)
+        Forward.viamap([Forward.A()])
+        Forward.bothways([Forward.A()])
+
+        callh = methodinstance(Outer.callh, (Int,))
+        cis = codeinstances(callh)
+        @test !isempty(cis)
+        @test all(ci -> ci.owner === nothing, cis)
+        @test isempty(codeinstances(callh; owner=:absent))
+
+        edges = direct_calls(callh)
+        @test direct_calls(first(cis)) ⊆ edges
+        edge = only(filter(e -> e.callee === methodinstance(Outer.Inner.h, (Int,)), edges))
+        @test edge.kind === :direct
+        @test edge.sig === nothing
+        @test edge.covered
+        @test edge.code isa Core.CodeInstance
+
+        @test any(direct_calls(methodinstance(Forward.outer, (Int,)))) do e
+            e.callee === methodinstance(Forward.inner, (Int,))
+        end
+
+        edge = only(filter(e -> e.kind === :invoke, direct_calls(methodinstance(Outer.geninvk, (Int,)))))
+        @test edge.sig === Tuple{typeof(Outer.invk), Integer}
+        @test edge.callee === methodinstance(Outer.invk, (Int,))
+
+        edges = filter(e -> e.kind === :dispatch, direct_calls(methodinstance(Forward.dispatchf, (Vector{Any},))))
+        @test length(edges) == 2
+        @test all(e -> e.sig === Tuple{typeof(Forward.f), Any}, edges)
+        @test all(e -> !e.covered, edges)
+        @test Set(e.callee for e in edges) == Set((methodinstance(Forward.f, (Forward.A,)),
+                                                   methodinstance(Forward.f, (Forward.B,))))
+
+        @test precompile(Forward.nomatch, (String,))
+        edge = only(direct_calls(methodinstance(Forward.nomatch, (String,))))
+        @test edge.kind === :nomatch
+        @test edge.sig === Tuple{typeof(Forward.g), String}
+        @test edge.callee === edge.code === nothing
+        @test !edge.covered
+
+        @test isempty(direct_calls(which(Outer.invk, (Integer,))))
+
+        callcallh = methodinstance(Outer.callcallh, (Int,))
+        callees = all_calls(callcallh)
+        @test callh ∈ callees && methodinstance(Outer.Inner.h, (Int,)) ∈ callees
+        @test callcallh ∉ callees
+
+        graph = callgraph(callcallh)
+        @test Set(keys(graph)) == Set(push!(copy(callees), callcallh))
+        @test only(graph[callcallh]).callee === callh
+        @test isempty(graph[methodinstance(Outer.Inner.h, (Int,))])
+
+        graph = callgraph(callcallh; follow = mi -> mi !== callh)
+        @test Set(keys(graph)) == Set((callcallh, callh))
+        @test isempty(graph[callh])
+
+        inmod = t -> (m = t isa Method ? t : t.def; m isa Method && m.module === Forward)
+        fA = methodinstance(Forward.f, (Forward.A,))
+
+        viamap = methodinstance(Forward.viamap, (Vector{Forward.A},))
+        edge = only(callgraph(viamap; keep=inmod)[viamap])
+        @test edge.kind === :indirect
+        @test edge.callee === fA
+        @test Set(keys(callgraph(viamap; keep=inmod))) == Set((viamap, fA))
+        @test fA ∉ keys(callgraph(viamap; follow=inmod))
+
+        bothways = methodinstance(Forward.bothways, (Vector{Forward.A},))
+        edge = only(callgraph(bothways; keep=inmod)[bothways])
+        @test edge.kind === :direct
+        @test edge.callee === fA
+
+        @test Set(keys(callgraph(viamap))) == Set(keys(callgraph(viamap; keep=Returns(true))))
+
+        seen = Pair{Any,Any}[]
+        visit_calls((caller, edge) -> (push!(seen, caller => edge.callee); true), callcallh)
+        @test (callcallh => callh) ∈ seen
+        @test (callh => methodinstance(Outer.Inner.h, (Int,))) ∈ seen
+
+        @test methodinstance(Outer.Inner.h, (Int,)) ∈ all_calls(Outer.callh)
+        @test callh ∈ keys(callgraph(Outer))
+
+        io = IOBuffer()
+        print(io, only(filter(e -> e.kind === :invoke, direct_calls(methodinstance(Outer.geninvk, (Int,))))))
+        str = String(take!(io))
+        @test startswith(str, "CallEdge(invoke")
+        @test occursin("sig=Tuple{typeof(", str)
     end
 end
 
