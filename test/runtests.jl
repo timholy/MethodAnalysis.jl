@@ -46,6 +46,8 @@ module Outer
     invk(::Int) = 1
     invk(::Integer) = 2
     geninvk(x) = invoke(invk, Tuple{Integer}, x)
+
+    typearg(::Type{T}, x) where T = (T, x)
 end
 
 module One
@@ -212,6 +214,26 @@ end
     mis = methodinstances(which(convert, (Type{String}, AbstractString)))
     @test length(mis) > 2
     @test mi ∉ mis   # that's covered by a different Method
+
+    # Julia 1.14 specializes a `Type{X}` argument on the egality kind `Core.TypeEgal{X}`,
+    # so the `Type{X}` spelling has to keep naming that specialization
+    Outer.typearg(Float32, 1)
+    mitype = methodinstance(Outer.typearg, (Type{Float32}, Int))
+    @test mitype isa Core.MethodInstance
+    @test mitype ∈ methodinstances(Outer.typearg, (Type{Float32}, Int))
+    if isdefined(Core, :TypeEgal)
+        @test mitype.specTypes.parameters[2] === Core.TypeEgal{Float32}
+        @test MethodAnalysis.widen_typeegal(Core.TypeEgal{Float32}) === Type{Float32}
+        @test MethodAnalysis.as_typeegal(Type{Float32}) === Core.TypeEgal{Float32}
+        @test MethodAnalysis.widen_typeegal(Tuple{Int,Core.TypeEgal{Float32}}) === Tuple{Int,Type{Float32}}
+        @test MethodAnalysis.as_typeegal(Tuple{Int,Type{Float32}}) === Tuple{Int,Core.TypeEgal{Float32}}
+        # a free type variable keeps the equality kind
+        @test MethodAnalysis.as_typeegal(Type{T} where T) === (Type{T} where T)
+    else
+        @test mitype.specTypes.parameters[2] === Type{Float32}
+    end
+    @test MethodAnalysis.widen_typeegal(Tuple{Int,String}) === Tuple{Int,String}
+    @test MethodAnalysis.as_typeegal(Tuple{Int,String}) === Tuple{Int,String}
 
     f(x) = 1
     f(1)
