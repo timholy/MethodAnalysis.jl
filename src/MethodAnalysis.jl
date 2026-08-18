@@ -18,19 +18,56 @@ include("backedges.jl")
 if !hasmethod(==, Tuple{Core.PhiNode,Core.PhiNode})
     Base.:(==)(stmt1::Core.PhiNode, stmt2::Core.PhiNode) = stmt1.edges == stmt2.edges && stmt1.values == stmt2.values
 end
-if isdefined(Core.Compiler, :BackedgeIterator)
-    getmi(mi::MethodInstance) = mi
-    getmi(pr::Pair{Any,MethodInstance}) = pr.second
-    getmi(pr::Core.Compiler.BackedgePair) = pr.caller
+getmi(mi::MethodInstance) = mi
+getmi(ci::CodeInstance) = Core.Compiler.get_ci_mi(ci)
+getmi(pr::Pair{Any,MethodInstance}) = pr.second
 
-    stdbe(::Nothing, caller::MethodInstance) = caller
-    stdbe(@nospecialize(invokesig), caller::MethodInstance) = Pair{Any,MethodInstance}(invokesig, caller)
+stdbe(::Nothing, caller::MethodInstance) = caller
+stdbe(@nospecialize(invokesig), caller::MethodInstance) = Pair{Any,MethodInstance}(invokesig, caller)
+
+if isdefined(Core.Compiler, :BackedgeIterator)
+    getmi(pr::Core.Compiler.BackedgePair) = pr.caller
     stdbe(pr::Core.Compiler.BackedgePair) = stdbe(pr.sig, pr.caller)
 
     if !hasmethod(iterate, Tuple{Core.Compiler.BackedgeIterator})
         Base.iterate(iter::Core.Compiler.BackedgeIterator, state...) = Core.Compiler.iterate(iter, state...)
     end
+
+    function backedge_pairs(backedges::Vector{Any})
+        prs = Tuple{Any,Any}[]
+        for be in Core.Compiler.BackedgeIterator(backedges)
+            push!(prs, (be.sig, be.caller))
+        end
+        return prs
+    end
+else
+    # An entry is either a caller on its own, or an `invokesig` followed by its caller.
+    function backedge_pairs(backedges::Vector{Any})
+        prs = Tuple{Any,Any}[]
+        i = 1
+        while i <= length(backedges)
+            item = backedges[i]
+            if isa(item, CodeInstance) || isa(item, MethodInstance)
+                push!(prs, (nothing, getmi(item)))
+                i += 1
+            else
+                push!(prs, (item, getmi(backedges[i+1]::Union{CodeInstance,MethodInstance})))
+                i += 2
+            end
+        end
+        return prs
+    end
 end
+
+"""
+    prs = backedge_pairs(backedges::Vector{Any})
+
+Decode a `MethodInstance`'s `backedges` field into `(invokesig, caller)` tuples.
+`invokesig` is `nothing` unless the call was made through `invoke`, in which case it is
+the signature named there. A caller may appear more than once, once per distinct
+`invokesig`.
+"""
+backedge_pairs
 
 """
     call_type(tt)

@@ -231,6 +231,7 @@ all_backedges
 direct_backedges
 terminal_backedges
 with_all_backedges
+MethodAnalysis.backedge_pairs
 ```
 
 ### forward call edges

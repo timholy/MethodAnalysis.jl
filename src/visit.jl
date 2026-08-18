@@ -283,29 +283,15 @@ function visit_backedges(@nospecialize(operation), obj, visited::IdSet{MethodIns
     visit(opwrapper, obj)
 end
 
-if isdefined(Core.Compiler, :BackedgeIterator)
-    function _visit_backedges(@nospecialize(operation), callee::Union{MethodInstance,Pair{Any,MethodInstance}}, visited)
-        getmi(callee) ∈ visited && return nothing
-        push!(visited, callee)
-        if operation(callee) && isdefined(getmi(callee), :backedges)
-            for be in Core.Compiler.BackedgeIterator(getmi(callee).backedges)
-                _visit_backedges(operation, stdbe(be), visited)
-            end
+function _visit_backedges(@nospecialize(operation), callee::MethodInstance, visited)
+    callee ∈ visited && return nothing
+    push!(visited, callee)
+    if operation(callee) && isdefined(callee, :backedges)
+        for (invokesig, caller) in backedge_pairs(callee.backedges)
+            _visit_backedges(operation, stdbe(invokesig, caller), visited)
         end
-        return nothing
     end
-else
-    function _visit_backedges(@nospecialize(operation), mi::MethodInstance, visited)
-        mi ∈ visited && return nothing
-        push!(visited, mi)
-        if operation(mi) && isdefined(mi, :backedges)
-            for edge in mi.backedges
-                isa(edge, CodeInstance) && (edge = Core.Compiler.get_ci_mi(edge))
-                _visit_backedges(operation, edge, visited)
-            end
-        end
-        return nothing
-    end
+    return nothing
 end
 
 function _visit_backedges(@nospecialize(operation), misig::Pair{Any,MethodInstance}, visited)

@@ -5,7 +5,7 @@ Return a list of all backedges (direct and indirect) of `mi`.
 """
 function all_backedges(mi::MethodInstance)
     backedges = Set{MethodInstance}()
-    visit_backedges(x->(push!(backedges, x); true), mi)
+    visit_backedges(x->(push!(backedges, getmi(x)); true), mi)
     delete!(backedges, mi)
     return collect(backedges)
 end
@@ -38,8 +38,9 @@ Obtain the "ultimate callers" of `mi`, i.e., the reason(s) `mi` was compiled.
 function terminal_backedges(mi::MethodInstance)
     backedges = Set{MethodInstance}()
     visit_backedges(mi) do x
-        if !isdefined(x, :backedges) || isempty(x.backedges)
-            push!(backedges, x)
+        caller = getmi(x)
+        if !isdefined(caller, :backedges) || isempty(caller.backedges)
+            push!(backedges, caller)
         end
         true
     end
@@ -93,37 +94,27 @@ function direct_backedges(f::Union{Method,Callable}; skip::Bool=true)
     end
     return bes
 end
-if isdefined(Core.Compiler, :BackedgeIterator)
-    function push_unskipped_backedges!(bes, callee, skip, _skip)
-        for caller in Core.Compiler.BackedgeIterator(callee.backedges)
-            skip && getmi(caller) ∈ _skip && continue
-            push!(bes, stdbe(caller.sig, callee)=>caller.caller)
-        end
-        return bes
+function push_unskipped_backedges!(bes, callee, skip, _skip)
+    for (invokesig, caller) in backedge_pairs(callee.backedges)
+        skip && caller ∈ _skip && continue
+        push!(bes, stdbe(invokesig, callee)=>caller)
     end
-else
-    function push_unskipped_backedges!(bes, callee, skip, _skip)
-        for caller in callee.backedges
-            isa(caller, CodeInstance) && (caller = Core.Compiler.get_ci_mi(caller))
-            skip && caller ∈ _skip && continue
-            push!(bes, callee=>caller)
-        end
-        return bes
-    end
+    return bes
 end
 
 """
     direct_backedges(mi::MethodInstance)
 
-A vector of all direct backedges of `mi`. This is equivalent to `mi.backedges` except that it's "safe,"
-meaning it returns an empty list even when `mi.backedges` is not defined.
+A vector of the callers of `mi`. This is equivalent to `mi.backedges` except that it's "safe,"
+meaning it returns an empty list even when `mi.backedges` is not defined. A caller is listed
+once per backedge, so it appears more than once if it reaches `mi` through more than one call
+form. Use [`backedge_pairs`](@ref MethodAnalysis.backedge_pairs) to tell those forms apart.
 """
 function direct_backedges(mi::MethodInstance)
     out = MethodInstance[]
     if isdefined(mi, :backedges)
-        for edge in mi.backedges
-            isa(edge, CodeInstance) && (edge = Core.Compiler.get_ci_mi(edge))
-            push!(out, edge)
+        for (_, caller) in backedge_pairs(mi.backedges)
+            push!(out, caller)
         end
     end
     return out
