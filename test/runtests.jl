@@ -291,11 +291,16 @@ end
     end
     applyf(Any[1, true])
 
+    # `applyf` dispatches on `f` at run time. Julia may record that as a method-table
+    # backedge, a plain one, or, once the call is devirtualized, an `invoke` backedge
+    # as well, so the number of backedges is version-dependent but the callers are not.
     bes = direct_backedges(f)
-    @test length(bes) == 1
-    pr = bes[1]
-    @test pr.first === Tuple{typeof(f),Any} || pr.first === methodinstance(f, (Integer,))
-    @test pr.second == methodinstance(applyf, (Vector{Any},))
+    fmi = methodinstance(f, (Integer,))
+    @test Set(pr.second for pr in bes) == Set((methodinstance(applyf, (Vector{Any},)),))
+    for pr in bes
+        @test pr.first === Tuple{typeof(f),Any} || pr.first === fmi ||
+              (pr.first isa Pair && pr.first.second === fmi)
+    end
 
     if Base.VERSION < v"1.12-DEV"
         bes = direct_backedges(f; skip=false)
@@ -316,15 +321,14 @@ end
     callnocallers(3)
     @test !isempty(direct_backedges(mi))
 
-    if isdefined(Core.Compiler, :BackedgeIterator)
-        @test Outer.geninvk(3) == 2
-        m = which(Outer.invk, (Integer,))
-        bes = direct_backedges(m)
-        be = only(bes)
-        @test be.first.second.specTypes.parameters[2] === Int
-        @test be.first.first === Tuple{typeof(Main.Outer.invk), Integer}
-        @test be.second == methodinstance(Outer.geninvk, (Int,))
-    end
+    # an `invoke` backedge carries the signature named at the call site
+    @test Outer.geninvk(3) == 2
+    m = which(Outer.invk, (Integer,))
+    bes = direct_backedges(m)
+    be = only(bes)
+    @test be.first.second.specTypes.parameters[2] === Int
+    @test be.first.first === Tuple{typeof(Main.Outer.invk), Integer}
+    @test be.second == methodinstance(Outer.geninvk, (Int,))
 end
 
 if hasfield(Core.CodeInstance, :edges)
